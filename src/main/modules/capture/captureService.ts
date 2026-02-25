@@ -1,5 +1,9 @@
-import { Display, screen } from 'electron';
-import screenshot from 'screenshot-desktop';
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { promisify } from 'node:util';
+import { Display } from 'electron';
 import sharp from 'sharp';
 import { NormalizedRect } from '@main/utils/geometry';
 import { logger } from '@main/utils/logger';
@@ -18,70 +22,32 @@ export interface CaptureResult {
   compressed: boolean;
 }
 
+interface IntegralRegion {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+const execFileAsync = promisify(execFile);
 const DEFAULT_MAX_LONG_EDGE_PX = 1400;
 
 export class CaptureService {
   async captureRegion(display: Display, region: NormalizedRect, options: CaptureOptions): Promise<CaptureResult> {
-    const displays = screen
-      .getAllDisplays()
-      .slice()
-      .sort((a, b) => (a.bounds.x === b.bounds.x ? a.bounds.y - b.bounds.y : a.bounds.x - b.bounds.x));
-
-    const displayIndex = Math.max(
-      displays.findIndex((candidate) => candidate.id === display.id),
-      0
-    );
-
-    const allShots = (await (screenshot as unknown as { all: (options?: unknown) => Promise<Buffer[]> }).all({
-      format: 'png'
-    })) as Buffer[];
-
-    const selectedShot = allShots[displayIndex] ?? allShots[0];
-    if (!selectedShot) {
-      throw new Error('No display screenshot available.');
-    }
-
-    const metadata = await sharp(selectedShot).metadata();
-    const sourceWidth = metadata.width ?? display.bounds.width;
-    const sourceHeight = metadata.height ?? display.bounds.height;
-
-    const scaleX = sourceWidth / display.bounds.width;
-    const scaleY = sourceHeight / display.bounds.height;
-
-    const sourceLeft = (region.x - display.bounds.x) * scaleX;
-    const sourceTop = (region.y - display.bounds.y) * scaleY;
-    const sourceRight = (region.x + region.width - display.bounds.x) * scaleX;
-    const sourceBottom = (region.y + region.height - display.bounds.y) * scaleY;
-
-    const left = Math.max(0, Math.floor(sourceLeft));
-    const top = Math.max(0, Math.floor(sourceTop));
-    const right = Math.min(sourceWidth, Math.ceil(sourceRight));
-    const bottom = Math.min(sourceHeight, Math.ceil(sourceBottom));
-    const width = Math.max(1, right - left);
-    const height = Math.max(1, bottom - top);
+    const sourceRegion = toIntegralRegion(region);
 
     logger.info('Capturing region', {
       displayId: display.id,
-      left,
-      top,
-      right,
-      bottom,
-      width,
-      height
+      sourceRegion,
+      captureBackend: 'screencapture'
     });
 
-    const extracted = sharp(selectedShot).extract({
-      left,
-      top,
-      width,
-      height
-    });
+    const nativeBuffer = await captureRegionWithScreencapture(sourceRegion);
+    const nativeMeta = await sharp(nativeBuffer).metadata();
+    const originalWidth = nativeMeta.width ?? sourceRegion.width;
+    const originalHeight = nativeMeta.height ?? sourceRegion.height;
 
-    const extractedMeta = await extracted.metadata();
-    const originalWidth = extractedMeta.width ?? width;
-    const originalHeight = extractedMeta.height ?? height;
-
-    let pipeline = extracted;
+    let pipeline = sharp(nativeBuffer);
     let compressed = false;
 
     if (options.imageCompressionEnabled) {
@@ -136,5 +102,40 @@ export class CaptureService {
       height: finalHeight,
       compressed
     };
+  }
+}
+
+function toIntegralRegion(region: NormalizedRect): IntegralRegion {
+  const left = Math.floor(region.x);
+  const top = Math.floor(region.y);
+  const right = Math.ceil(region.x + region.width);
+  const bottom = Math.ceil(region.y + region.height);
+
+  return {
+    left,
+    top,
+    width: Math.max(1, right - left),
+    height: Math.max(1, bottom - top)
+  };
+}
+
+async function captureRegionWithScreencapture(region: IntegralRegion): Promise<Buffer> {
+  const tempDir = await mkdtemp(path.join(tmpdir(), 'background-agent-capture-'));
+  const imagePath = path.join(tempDir, 'capture.png');
+
+  try {
+    await execFileAsync('screencapture', [
+      '-x',
+      '-t',
+      'png',
+      `-R${region.left},${region.top},${region.width},${region.height}`,
+      imagePath
+    ]);
+    return await readFile(imagePath);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'unknown';
+    throw new Error(`screencapture failed: ${reason}`);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
   }
 }

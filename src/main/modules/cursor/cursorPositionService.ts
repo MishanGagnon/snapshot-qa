@@ -8,12 +8,6 @@ export const GLOBAL_CURSOR_ANCHOR_OFFSET = {
   y: -20
 } as const;
 
-const TARGET_OFFSETS: Record<CursorAnchorTarget, { x: number; y: number }> = {
-  // Start selection slightly above-left so the full cursor is more likely to be inside capture.
-  capture: { x: -16, y: -4 },
-  indicator: { x: 0, y: 0 }
-};
-
 export function applyCursorOffset(point: Point, offset: { x: number; y: number }): Point {
   return {
     x: point.x + offset.x,
@@ -26,8 +20,12 @@ export function toGlobalCursorAnchor(point: Point): Point {
 }
 
 export function toCursorTargetAnchor(point: Point, target: CursorAnchorTarget): Point {
-  const anchored = toGlobalCursorAnchor(point);
-  return applyCursorOffset(anchored, TARGET_OFFSETS[target]);
+  if (target === 'capture') {
+    // Capture should use raw cursor hotspot coordinates.
+    return point;
+  }
+
+  return toGlobalCursorAnchor(point);
 }
 
 export class CursorPositionService {

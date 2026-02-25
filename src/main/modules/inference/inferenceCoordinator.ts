@@ -5,6 +5,8 @@ import { LatestResponseStore } from '@main/modules/runtime/latestResponseStore';
 import { logger } from '@main/utils/logger';
 import { CaptureResult } from '@main/modules/capture/captureService';
 
+const INFERENCE_TIMEOUT_MS = 120_000;
+
 export class InferenceCoordinator {
   private sequence = 0;
   private activeAbort: AbortController | null = null;
@@ -61,7 +63,7 @@ export class InferenceCoordinator {
         imageBuffer: capture.buffer,
         imageMimeType: capture.mimeType,
         contextCachingEnabled: settings.contextCachingEnabled,
-        timeoutMs: 20_000,
+        timeoutMs: INFERENCE_TIMEOUT_MS,
         signal: controller.signal
       });
 

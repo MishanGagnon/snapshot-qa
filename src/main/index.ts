@@ -230,7 +230,11 @@ async function finishCapture(): Promise<void> {
   const endPoint = cursorPositionService.getTargetPoint('capture');
   const normalized = normalizeRect(session.startPoint, endPoint);
   const clampedAtRelease = clampRectToBounds(normalized, session.displayBounds);
-  const clamped = session.showSelectionBox && session.lastDrawnRect ? session.lastDrawnRect : clampedAtRelease;
+  const clamped = clampedAtRelease ?? session.lastDrawnRect;
+
+  if (session.showSelectionBox) {
+    selectionOverlay.updateRect(clamped ? toRelativeRect(clamped, session.displayBounds) : null);
+  }
 
   selectionOverlay.hide();
 

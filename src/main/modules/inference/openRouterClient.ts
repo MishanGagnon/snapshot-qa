@@ -181,12 +181,26 @@ export class OpenRouterClient {
         reportedCostUsd: usageSnapshot?.costUsd ?? null
       };
     } catch (error) {
+      const abortReason = stringifyUnknown(controller.signal.reason);
+      const errorReason = stringifyUnknown(error);
       logger.warn('OpenRouter request failed', {
         requestId: input.requestId ?? 'n/a',
-        reason: error instanceof Error ? error.message : 'unknown'
+        reason: errorReason || 'unknown',
+        errorType: typeof error,
+        errorName: getErrorName(error),
+        aborted: controller.signal.aborted,
+        abortReason: abortReason || 'none'
       });
       if (error instanceof InferenceError) {
         throw error;
+      }
+
+      if (controller.signal.aborted) {
+        const code: ErrorCode = controller.signal.reason === 'timeout' ? 'TIMEOUT' : 'NETWORK';
+        throw new InferenceError(
+          code,
+          code === 'TIMEOUT' ? 'Request timed out.' : abortReason ? `Request aborted: ${abortReason}` : 'Request aborted.'
+        );
       }
 
       if (error instanceof DOMException && error.name === 'AbortError') {
@@ -194,7 +208,7 @@ export class OpenRouterClient {
         throw new InferenceError(code, code === 'TIMEOUT' ? 'Request timed out.' : 'Request aborted.');
       }
 
-      throw new InferenceError('NETWORK', error instanceof Error ? error.message : 'Network failure');
+      throw new InferenceError('NETWORK', errorReason || 'Network failure');
     } finally {
       clearTimeout(timeout);
       input.signal?.removeEventListener('abort', forwardAbort);
@@ -445,4 +459,37 @@ function extractDeltaText(parsed: Record<string, unknown>): string {
   }
 
   return '';
+}
+
+function stringifyUnknown(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value instanceof Error) {
+    return value.message || value.name || 'Error';
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  if (value === null || value === undefined) {
+    return '';
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function getErrorName(value: unknown): string {
+  if (value && typeof value === 'object') {
+    const candidate = value as { name?: unknown; constructor?: { name?: unknown } };
+    if (typeof candidate.name === 'string' && candidate.name.length > 0) {
+      return candidate.name;
+    }
+    if (typeof candidate.constructor?.name === 'string' && candidate.constructor.name.length > 0) {
+      return candidate.constructor.name;
+    }
+  }
+  return typeof value;
 }
