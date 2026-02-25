@@ -7,8 +7,9 @@ describe('CursorPositionService helpers', () => {
     expect(anchored).toEqual({ x: 114, y: 80 });
   });
 
-  it('keeps capture and indicator anchored to same global source by default', () => {
+  it('nudges capture anchor above-left of indicator anchor', () => {
     const raw = { x: 220, y: 310 };
-    expect(toCursorTargetAnchor(raw, 'capture')).toEqual(toCursorTargetAnchor(raw, 'indicator'));
+    expect(toCursorTargetAnchor(raw, 'capture')).toEqual({ x: 218, y: 286 });
+    expect(toCursorTargetAnchor(raw, 'indicator')).toEqual({ x: 234, y: 290 });
   });
 });

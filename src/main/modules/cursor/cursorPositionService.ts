@@ -9,7 +9,8 @@ export const GLOBAL_CURSOR_ANCHOR_OFFSET = {
 } as const;
 
 const TARGET_OFFSETS: Record<CursorAnchorTarget, { x: number; y: number }> = {
-  capture: { x: 0, y: 0 },
+  // Start selection slightly above-left so the full cursor is more likely to be inside capture.
+  capture: { x: -16, y: -4 },
   indicator: { x: 0, y: 0 }
 };
 
