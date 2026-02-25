@@ -5,6 +5,8 @@ export interface GeneralSettings {
   customInfo: string;
   defaultModel: string;
   showSelectionBox: boolean;
+  showResponseChrome: boolean;
+  ultraDiscreteMode: boolean;
   launchAtLogin: boolean;
   imageCompressionEnabled: boolean;
   contextCachingEnabled: boolean;
@@ -20,6 +22,8 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   customInfo: '',
   defaultModel: 'google/gemini-3-flash-preview',
   showSelectionBox: true,
+  showResponseChrome: true,
+  ultraDiscreteMode: false,
   launchAtLogin: false,
   imageCompressionEnabled: true,
   contextCachingEnabled: true

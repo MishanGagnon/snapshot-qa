@@ -1,4 +1,7 @@
 const MAX_CORPUS_CHARS = 60000;
+const DEFAULT_REASONING_EFFORT = 'xhigh';
+const DEFAULT_REASONING_MAX_TOKENS = 2000;
+const DEFAULT_COMPLETION_MAX_TOKENS = 2000;
 
 export interface PromptBuildInput {
   corpus: string;
@@ -21,9 +24,9 @@ export function buildPrompt(input: PromptBuildInput): PromptBuildResult {
   const instruction = [
     'You are a discreet workplace recall assistant.',
     'Answer using the screenshot and provided context only.',
-    'Output the shortest useful answer possible: one token, word, or very short phrase.',
-    'If uncertain or unsupported by evidence, output exactly: unknown.',
-    'Do not add explanation, punctuation, or extra words unless required for meaning.',
+    'If uncertain use as many reasoning tokens as possible going over the provided corpus and personal knoweldge to answer.',
+    'Return a complete final answer, not a fragment.',
+    'For process or "how" questions, return one concise full sentence with the key materials and action.',
     'Match language and terminology style from the context corpus.'
   ].join(' ');
 
@@ -49,7 +52,8 @@ export function buildPrompt(input: PromptBuildInput): PromptBuildResult {
     body: {
       model: input.model,
       temperature: 0.0,
-      max_tokens: 32,
+      max_tokens: DEFAULT_COMPLETION_MAX_TOKENS,
+      reasoning: buildReasoningConfig(input.model),
       stream: true,
       stream_options: {
         include_usage: true
@@ -96,5 +100,18 @@ export function truncateCorpus(corpus: string, maxChars: number): { value: strin
   return {
     value: `${trimmed.slice(0, maxChars)}\n[truncated]`,
     truncated: true
+  };
+}
+
+function buildReasoningConfig(model: string): Record<string, unknown> {
+  // Gemini 3 accepts thinking level via effort; it rejects effort+max_tokens together.
+  if (model.toLowerCase().includes('gemini-3')) {
+    return {
+      effort: DEFAULT_REASONING_EFFORT
+    };
+  }
+
+  return {
+    max_tokens: DEFAULT_REASONING_MAX_TOKENS
   };
 }

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useDebouncedEffect } from '@renderer/lib/useDebouncedEffect';
 
 interface ApiKeysSettingsFormProps {
   hasOpenRouterKey: boolean;
@@ -15,12 +16,76 @@ export function ApiKeysSettingsForm({
 }: ApiKeysSettingsFormProps): JSX.Element {
   const [modelDraft, setModelDraft] = useState(defaultModel);
   const [value, setValue] = useState('');
-  const [savingKey, setSavingKey] = useState(false);
-  const [savingModel, setSavingModel] = useState(false);
+  const [modelStatus, setModelStatus] = useState('Autosaves on input.');
+  const [keyStatus, setKeyStatus] = useState('Autosaves on input.');
+  const skipModelAutosave = useRef(true);
+  const skipKeyAutosave = useRef(true);
+  const lastSavedModel = useRef(defaultModel.trim());
+  const lastSavedKey = useRef(value.trim());
 
   useEffect(() => {
     setModelDraft(defaultModel);
+    lastSavedModel.current = defaultModel.trim();
+    skipModelAutosave.current = true;
   }, [defaultModel]);
+
+  useDebouncedEffect(
+    () => {
+      if (skipModelAutosave.current) {
+        skipModelAutosave.current = false;
+        return;
+      }
+
+      const nextModel = modelDraft.trim();
+      if (!nextModel || nextModel === lastSavedModel.current) {
+        return;
+      }
+
+      const apply = async () => {
+        setModelStatus('Saving...');
+        try {
+          await onSaveModel(nextModel);
+          lastSavedModel.current = nextModel;
+          setModelStatus('Saved');
+        } catch {
+          setModelStatus('Failed to save');
+        }
+      };
+
+      void apply();
+    },
+    350,
+    [modelDraft, onSaveModel]
+  );
+
+  useDebouncedEffect(
+    () => {
+      if (skipKeyAutosave.current) {
+        skipKeyAutosave.current = false;
+        return;
+      }
+
+      const candidate = value.trim();
+      if (!candidate || candidate === lastSavedKey.current) {
+        return;
+      }
+
+      const apply = async () => {
+        setKeyStatus('Saving key...');
+        try {
+          await onSaveKey(candidate);
+          lastSavedKey.current = candidate;
+          setKeyStatus('Key saved');
+        } catch {
+          setKeyStatus('Failed to save key');
+        }
+      };
+
+      void apply();
+    },
+    550,
+    [value, onSaveKey]
+  );
 
   return (
     <section className="panel">
@@ -37,30 +102,7 @@ export function ApiKeysSettingsForm({
           placeholder="google/gemini-3-flash-preview"
         />
       </label>
-
-      <div className="button-row">
-        <span />
-        <button
-          type="button"
-          className="button button--primary"
-          disabled={savingModel}
-          onClick={async () => {
-            const nextModel = modelDraft.trim();
-            if (!nextModel) {
-              return;
-            }
-
-            setSavingModel(true);
-            try {
-              await onSaveModel(nextModel);
-            } finally {
-              setSavingModel(false);
-            }
-          }}
-        >
-          {savingModel ? 'Saving Model...' : 'Save Model'}
-        </button>
-      </div>
+      <p className="helper-text">{modelStatus}</p>
 
       <label className="field">
         <span className="field__label">OpenRouter API Key</span>
@@ -76,30 +118,7 @@ export function ApiKeysSettingsForm({
       <div className={`pill ${hasOpenRouterKey ? 'is-ok' : 'is-warn'}`}>
         Key status: {hasOpenRouterKey ? 'configured' : 'missing'}
       </div>
-
-      <div className="button-row">
-        <span />
-        <button
-          type="button"
-          className="button button--primary"
-          disabled={savingKey}
-          onClick={async () => {
-            if (!value.trim()) {
-              return;
-            }
-
-            setSavingKey(true);
-            try {
-              await onSaveKey(value.trim());
-              setValue('');
-            } finally {
-              setSavingKey(false);
-            }
-          }}
-        >
-          {savingKey ? 'Saving Key...' : 'Save API Key'}
-        </button>
-      </div>
+      <p className="helper-text">{keyStatus}</p>
     </section>
   );
 }

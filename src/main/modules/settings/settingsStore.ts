@@ -28,6 +28,8 @@ const settingsSchema = z.object({
       customInfo: z.string(),
       defaultModel: z.string(),
       showSelectionBox: z.boolean(),
+      showResponseChrome: z.boolean(),
+      ultraDiscreteMode: z.boolean(),
       launchAtLogin: z.boolean(),
       imageCompressionEnabled: z.boolean(),
       contextCachingEnabled: z.boolean()
@@ -154,6 +156,14 @@ export class SettingsStore {
 
     if (typeof input.showSelectionBox === 'boolean') {
       patch.showSelectionBox = input.showSelectionBox;
+    }
+
+    if (typeof input.showResponseChrome === 'boolean') {
+      patch.showResponseChrome = input.showResponseChrome;
+    }
+
+    if (typeof input.ultraDiscreteMode === 'boolean') {
+      patch.ultraDiscreteMode = input.ultraDiscreteMode;
     }
 
     if (typeof input.launchAtLogin === 'boolean') {

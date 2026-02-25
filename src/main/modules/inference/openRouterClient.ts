@@ -101,38 +101,46 @@ export class OpenRouterClient {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let pending = '';
+      let streamDone = false;
 
-      while (true) {
+      const handleDataPayload = (data: string) => {
+        if (data === '[DONE]') {
+          streamDone = true;
+          return;
+        }
+
+        const parsed = parseStreamEventData(data);
+
+        if (parsed.usage) {
+          usageSnapshot = parsed.usage;
+        }
+
+        if (parsed.deltaText) {
+          aggregated += parsed.deltaText;
+          input.onToken?.(parsed.deltaText);
+        }
+      };
+
+      while (!streamDone) {
         const { done, value } = await reader.read();
         if (done) {
+          pending += decoder.decode();
           break;
         }
 
         pending += decoder.decode(value, { stream: true });
-        const lines = pending.split('\n');
-        pending = lines.pop() ?? '';
+        const consumed = consumeSseDataPayloads(pending, false, handleDataPayload);
+        pending = consumed.pending;
+        if (consumed.done) {
+          streamDone = true;
+        }
+      }
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith('data:')) {
-            continue;
-          }
-
-          const data = trimmed.slice(5).trim();
-          if (data === '[DONE]') {
-            break;
-          }
-
-          const parsed = parseStreamEventData(data);
-
-          if (parsed.usage) {
-            usageSnapshot = parsed.usage;
-          }
-
-          if (parsed.deltaText) {
-            aggregated += parsed.deltaText;
-            input.onToken?.(parsed.deltaText);
-          }
+      if (!streamDone) {
+        const consumed = consumeSseDataPayloads(pending, true, handleDataPayload);
+        pending = consumed.pending;
+        if (consumed.done) {
+          streamDone = true;
         }
       }
 
@@ -143,7 +151,8 @@ export class OpenRouterClient {
       logger.info('OpenRouter response completed', {
         requestId: input.requestId ?? 'n/a',
         outputChars: text.length,
-        corpusTruncated: prompt.corpusTruncated
+        corpusTruncated: prompt.corpusTruncated,
+        responseText: text
       });
 
       this.logUsageAndCost(input.requestId, usageSnapshot, pricing, costEstimate);
@@ -275,6 +284,74 @@ export class OpenRouterClient {
   }
 }
 
+function consumeSseDataPayloads(
+  chunk: string,
+  flushRemainder: boolean,
+  onPayload: (data: string) => void
+): { pending: string; done: boolean } {
+  let pending = chunk.replace(/\r\n/g, '\n');
+  let done = false;
+
+  while (true) {
+    const boundaryIndex = pending.indexOf('\n\n');
+    if (boundaryIndex < 0) {
+      break;
+    }
+
+    const eventBlock = pending.slice(0, boundaryIndex);
+    pending = pending.slice(boundaryIndex + 2);
+
+    const data = extractSseDataPayload(eventBlock);
+    if (!data) {
+      continue;
+    }
+
+    onPayload(data);
+    if (data === '[DONE]') {
+      done = true;
+    }
+  }
+
+  if (flushRemainder) {
+    const tail = pending.trim();
+    pending = '';
+    if (tail) {
+      const data = extractSseDataPayload(tail);
+      if (data) {
+        onPayload(data);
+        if (data === '[DONE]') {
+          done = true;
+        }
+      }
+    }
+  }
+
+  return { pending, done };
+}
+
+function extractSseDataPayload(eventBlock: string): string | null {
+  const dataLines: string[] = [];
+
+  for (const rawLine of eventBlock.split('\n')) {
+    const line = rawLine.trimEnd();
+    if (!line || line.startsWith(':')) {
+      continue;
+    }
+
+    if (!line.startsWith('data:')) {
+      continue;
+    }
+
+    dataLines.push(line.slice(5).trimStart());
+  }
+
+  if (dataLines.length === 0) {
+    return null;
+  }
+
+  return dataLines.join('\n').trim();
+}
+
 function parseStreamEventData(raw: string): StreamParseResult {
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -296,14 +373,42 @@ function extractDeltaText(parsed: Record<string, unknown>): string {
     return '';
   }
 
-  const delta = (choices[0] as { delta?: { content?: unknown } })?.delta?.content;
+  const firstChoice = choices[0] as {
+    delta?: { content?: unknown; text?: unknown };
+    message?: { content?: unknown };
+  };
+  const delta = firstChoice?.delta?.content;
 
   if (typeof delta === 'string') {
     return delta;
   }
 
+  const deltaText = firstChoice?.delta?.text;
+  if (typeof deltaText === 'string') {
+    return deltaText;
+  }
+
   if (Array.isArray(delta)) {
     return delta
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item;
+        }
+        if (typeof item === 'object' && item && 'text' in item && typeof item.text === 'string') {
+          return item.text;
+        }
+        return '';
+      })
+      .join('');
+  }
+
+  const messageContent = firstChoice?.message?.content;
+  if (typeof messageContent === 'string') {
+    return messageContent;
+  }
+
+  if (Array.isArray(messageContent)) {
+    return messageContent
       .map((item) => {
         if (typeof item === 'string') {
           return item;

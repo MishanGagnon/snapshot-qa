@@ -280,13 +280,17 @@ async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<
   }
 
   const coordinator = getInferenceCoordinator();
-  if (!coordinator) {
+  const store = getSettingsStore();
+  if (!coordinator || !store) {
     return;
   }
+  const { ultraDiscreteMode, showResponseChrome } = store.get().general;
 
   if (latest.status === 'pending') {
     await indicatorOverlay.showAt(point, {
-      state: 'pending'
+      state: 'pending',
+      ultraDiscreteMode,
+      showResponseChrome
     });
     return;
   }
@@ -295,7 +299,9 @@ async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<
     coordinator.copyLatestForDisplay((text) => clipboard.writeText(text));
     await indicatorOverlay.showAt(point, {
       state: 'complete',
-      text: latest.text
+      text: latest.text,
+      ultraDiscreteMode,
+      showResponseChrome
     });
     return;
   }
@@ -304,7 +310,9 @@ async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<
     coordinator.copyLatestForDisplay((text) => clipboard.writeText(text));
     await indicatorOverlay.showAt(point, {
       state: 'error',
-      text: latest.text
+      text: latest.text,
+      ultraDiscreteMode,
+      showResponseChrome
     });
   }
 }

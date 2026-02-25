@@ -38,14 +38,16 @@ describe('InferenceCoordinator', () => {
         compressed: false
       },
       {
-      corpus: '   ',
-      customInfo: '',
-      defaultModel: 'google/gemini-3-flash-preview',
-      showSelectionBox: true,
-      launchAtLogin: false,
-      imageCompressionEnabled: true,
-      contextCachingEnabled: true
-    }
+        corpus: '   ',
+        customInfo: '',
+        defaultModel: 'google/gemini-3-flash-preview',
+        showSelectionBox: true,
+        showResponseChrome: true,
+        ultraDiscreteMode: false,
+        launchAtLogin: false,
+        imageCompressionEnabled: true,
+        contextCachingEnabled: true
+      }
     );
 
     const latest = coordinator.getLatestState();
@@ -67,14 +69,16 @@ describe('InferenceCoordinator', () => {
         compressed: false
       },
       {
-      corpus: 'term definitions',
-      customInfo: '',
-      defaultModel: 'google/gemini-3-flash-preview',
-      showSelectionBox: true,
-      launchAtLogin: false,
-      imageCompressionEnabled: true,
-      contextCachingEnabled: true
-    }
+        corpus: 'term definitions',
+        customInfo: '',
+        defaultModel: 'google/gemini-3-flash-preview',
+        showSelectionBox: true,
+        showResponseChrome: true,
+        ultraDiscreteMode: false,
+        launchAtLogin: false,
+        imageCompressionEnabled: true,
+        contextCachingEnabled: true
+      }
     );
 
     const writer = vi.fn();

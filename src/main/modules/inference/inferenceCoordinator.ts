@@ -70,6 +70,7 @@ export class InferenceCoordinator {
       logger.info('Inference request completed', {
         requestId: responseId,
         outputChars: finalText.length,
+        responseText: finalText,
         corpusTruncated: result.corpusTruncated,
         promptTokens: result.usage?.promptTokens ?? 'n/a',
         completionTokens: result.usage?.completionTokens ?? 'n/a',

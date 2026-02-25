@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   HotkeyActionId,
   HotkeyBinding,
@@ -10,6 +10,7 @@ import {
   HotkeyValidationResult,
   SUPPORTED_HOTKEY_KEYS
 } from '@shared/contracts';
+import { useDebouncedEffect } from '@renderer/lib/useDebouncedEffect';
 
 interface HotkeySettingsFormProps {
   initialValue: HotkeyMap;
@@ -30,10 +31,15 @@ export function HotkeySettingsForm({ initialValue, onValidate, onSave }: HotkeyS
   const [validation, setValidation] = useState<HotkeyValidationResult | null>(null);
   const [recordingActionId, setRecordingActionId] = useState<HotkeyActionId | null>(null);
   const [recordingError, setRecordingError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [applyStatus, setApplyStatus] = useState('Autosaves on input.');
+  const skipAutosave = useRef(true);
+  const lastAppliedSignature = useRef(signatureFromMap(initialValue));
+  const applySequence = useRef(0);
 
   useEffect(() => {
     setDraft(initialValue);
+    skipAutosave.current = true;
+    lastAppliedSignature.current = signatureFromMap(initialValue);
   }, [initialValue]);
 
   useEffect(() => {
@@ -90,28 +96,60 @@ export function HotkeySettingsForm({ initialValue, onValidate, onSave }: HotkeyS
     };
   }, [recordingActionId]);
 
+  useDebouncedEffect(
+    () => {
+      if (recordingActionId) {
+        return;
+      }
+
+      if (skipAutosave.current) {
+        skipAutosave.current = false;
+        return;
+      }
+
+      const signature = signatureFromMap(draft);
+      if (signature === lastAppliedSignature.current) {
+        return;
+      }
+
+      const sequence = ++applySequence.current;
+      const apply = async () => {
+        setApplyStatus('Validating...');
+        const precheck = await onValidate(draft);
+        if (sequence !== applySequence.current) {
+          return;
+        }
+
+        setValidation(precheck);
+        if (!precheck.valid) {
+          setApplyStatus('Invalid shortcut combination.');
+          return;
+        }
+
+        setApplyStatus('Applying...');
+        const result = await onSave(draft);
+        if (sequence !== applySequence.current) {
+          return;
+        }
+        setValidation(result.validation);
+        if (result.ok) {
+          lastAppliedSignature.current = signature;
+          setApplyStatus('Applied');
+        } else {
+          setApplyStatus('Blocked by validation');
+        }
+      };
+
+      void apply();
+    },
+    300,
+    [draft, recordingActionId, onValidate, onSave]
+  );
+
   const hasErrors = useMemo(() => Boolean(validation && !validation.valid), [validation]);
 
   return (
-    <form
-      className="panel"
-      onSubmit={async (event) => {
-        event.preventDefault();
-        setSaving(true);
-        try {
-          const precheck = await onValidate(draft);
-          if (!precheck.valid) {
-            setValidation(precheck);
-            return;
-          }
-
-          const result = await onSave(draft);
-          setValidation(result.validation);
-        } finally {
-          setSaving(false);
-        }
-      }}
-    >
+    <section className="panel">
       {HOTKEY_ACTION_DEFINITIONS.map((action) => {
         const current = draft[action.id];
         const isRecording = recordingActionId === action.id;
@@ -161,7 +199,7 @@ export function HotkeySettingsForm({ initialValue, onValidate, onSave }: HotkeyS
         );
       })}
 
-      {hasErrors ? <p className="error-text">Fix invalid combinations before saving.</p> : null}
+      {hasErrors ? <p className="error-text">Fix invalid combinations before they can be applied.</p> : null}
 
       <div className="button-row">
         <button
@@ -178,12 +216,9 @@ export function HotkeySettingsForm({ initialValue, onValidate, onSave }: HotkeyS
         >
           Reset Defaults
         </button>
-
-        <button type="submit" className="button button--primary" disabled={saving}>
-          {saving ? 'Applying...' : 'Apply Hotkeys'}
-        </button>
+        <span className="helper-text">{applyStatus}</span>
       </div>
-    </form>
+    </section>
   );
 }
 
@@ -247,4 +282,8 @@ function formatBinding(binding: HotkeyBinding): string {
     .join('');
 
   return `${modifierPart}${binding.key}`;
+}
+
+function signatureFromMap(map: HotkeyMap): string {
+  return HOTKEY_ACTION_DEFINITIONS.map((action) => formatBinding(map[action.id])).join('|');
 }

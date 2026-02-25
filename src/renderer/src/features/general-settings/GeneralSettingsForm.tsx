@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { GeneralSettings, PermissionStatus } from '@shared/contracts';
+import { useDebouncedEffect } from '@renderer/lib/useDebouncedEffect';
 
 interface GeneralSettingsFormProps {
   initialValue: GeneralSettings;
@@ -9,25 +10,39 @@ interface GeneralSettingsFormProps {
 
 export function GeneralSettingsForm({ initialValue, permissions, onSave }: GeneralSettingsFormProps): JSX.Element {
   const [draft, setDraft] = useState<GeneralSettings>(initialValue);
-  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState('Autosaves on input.');
+  const skipAutosave = useRef(true);
 
   useEffect(() => {
     setDraft(initialValue);
+    skipAutosave.current = true;
   }, [initialValue]);
 
-  return (
-    <form
-      className="panel"
-      onSubmit={async (event) => {
-        event.preventDefault();
-        setSaving(true);
+  useDebouncedEffect(
+    () => {
+      if (skipAutosave.current) {
+        skipAutosave.current = false;
+        return;
+      }
+
+      const apply = async () => {
+        setStatus('Saving...');
         try {
           await onSave(draft);
-        } finally {
-          setSaving(false);
+          setStatus('Saved');
+        } catch {
+          setStatus('Failed to save');
         }
-      }}
-    >
+      };
+
+      void apply();
+    },
+    250,
+    [draft, onSave]
+  );
+
+  return (
+    <section className="panel">
       <label className="field">
         <span className="field__label">Corpus</span>
         <textarea
@@ -58,6 +73,24 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
             onChange={(event) => setDraft((prev) => ({ ...prev, showSelectionBox: event.target.checked }))}
           />
           <span>Show subtle selection box during capture</span>
+        </label>
+
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={draft.showResponseChrome}
+            onChange={(event) => setDraft((prev) => ({ ...prev, showResponseChrome: event.target.checked }))}
+          />
+          <span>Show response bubble background and border</span>
+        </label>
+
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={draft.ultraDiscreteMode}
+            onChange={(event) => setDraft((prev) => ({ ...prev, ultraDiscreteMode: event.target.checked }))}
+          />
+          <span>Ultra discrete mode (text-only, no response background)</span>
         </label>
 
         <label className="toggle">
@@ -97,9 +130,7 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
         </div>
       </div>
 
-      <button type="submit" className="button button--primary" disabled={saving}>
-        {saving ? 'Saving...' : 'Save General Settings'}
-      </button>
-    </form>
+      <p className="helper-text">{status}</p>
+    </section>
   );
 }
