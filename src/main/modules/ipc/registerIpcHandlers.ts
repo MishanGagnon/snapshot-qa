@@ -3,6 +3,7 @@ import {
   HotkeyMap,
   HotkeyUpdateResponse,
   HotkeyValidationResult,
+  GeneralSettings,
   IPC_CHANNELS,
   KeyStatusResponse
 } from '@shared/contracts';
@@ -24,8 +25,8 @@ interface IpcDependencies {
 export function registerIpcHandlers(deps: IpcDependencies): void {
   ipcMain.handle(IPC_CHANNELS.settingsGet, async () => deps.settingsStore.get());
 
-  ipcMain.handle(IPC_CHANNELS.settingsUpdate, async (_event, generalPatch: Record<string, unknown>) => {
-    const updated = deps.settingsStore.updateGeneral(generalPatch as never);
+  ipcMain.handle(IPC_CHANNELS.settingsUpdate, async (_event, generalPatch: Partial<GeneralSettings>) => {
+    const updated = deps.settingsStore.updateGeneral(generalPatch);
     app.setLoginItemSettings({
       openAtLogin: updated.general.launchAtLogin
     });

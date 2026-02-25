@@ -1,11 +1,6 @@
 import { app, BrowserWindow, Menu, Tray, clipboard, nativeImage, screen } from 'electron';
 import { join } from 'node:path';
-import {
-  HOTKEY_ACTION_DEFINITIONS,
-  HotkeyActionId,
-  HotkeyMap,
-  LatestResponse
-} from '@shared/contracts';
+import { HOTKEY_ACTION_DEFINITIONS, HotkeyActionId, LatestResponse } from '@shared/contracts';
 import { CaptureService } from '@main/modules/capture/captureService';
 import { HotkeyManager } from '@main/modules/hotkeys/hotkeyManager';
 import { UiohookHotkeyService } from '@main/modules/hotkeys/uiohookHotkeyService';
@@ -24,6 +19,16 @@ import { logger } from '@main/utils/logger';
 let tray: Tray | null = null;
 let settingsWindow: BrowserWindow | null = null;
 
+let keyStore: KeyStore | null = null;
+let settingsStore: SettingsStore | null = null;
+let permissionService: PermissionService | null = null;
+let inferenceCoordinator: InferenceCoordinator | null = null;
+let captureService: CaptureService | null = null;
+let hotkeyManager: HotkeyManager | null = null;
+
+const selectionOverlay = new SelectionOverlay();
+const indicatorOverlay = new IndicatorOverlay();
+
 let captureSession: {
   startPoint: Point;
   displayBounds: Electron.Rectangle;
@@ -32,26 +37,6 @@ let captureSession: {
 } | null = null;
 
 let indicatorPoll: NodeJS.Timeout | null = null;
-
-const keyStore = new KeyStore();
-const settingsStore = new SettingsStore();
-const permissionService = new PermissionService();
-const latestResponseStore = new LatestResponseStore();
-const inferenceCoordinator = new InferenceCoordinator(
-  new OpenRouterClient(),
-  latestResponseStore,
-  () => keyStore.getOpenRouterKey()
-);
-const captureService = new CaptureService();
-const selectionOverlay = new SelectionOverlay();
-const indicatorOverlay = new IndicatorOverlay();
-
-const hotkeyManager = new HotkeyManager(
-  new UiohookHotkeyService(),
-  settingsStore.get().hotkeys,
-  handleHotkeyStart,
-  handleHotkeyEnd
-);
 
 function createSettingsWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -94,7 +79,6 @@ function createTray(): Tray {
     .resize({ width: 16, height: 16 });
 
   const nextTray = new Tray(icon);
-
   nextTray.setToolTip('Discreet QA');
   nextTray.setContextMenu(
     Menu.buildFromTemplate([
@@ -131,6 +115,22 @@ function createTray(): Tray {
   return nextTray;
 }
 
+function getSettingsStore(): SettingsStore | null {
+  if (!settingsStore) {
+    logger.warn('Settings store not initialized yet.');
+    return null;
+  }
+  return settingsStore;
+}
+
+function getInferenceCoordinator(): InferenceCoordinator | null {
+  if (!inferenceCoordinator) {
+    logger.warn('Inference coordinator not initialized yet.');
+    return null;
+  }
+  return inferenceCoordinator;
+}
+
 function handleHotkeyStart(actionId: HotkeyActionId): void {
   if (actionId === 'capture_region') {
     startCapture();
@@ -158,9 +158,14 @@ function startCapture(): void {
     return;
   }
 
+  const store = getSettingsStore();
+  if (!store) {
+    return;
+  }
+
   const startPoint = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(startPoint);
-  const { showSelectionBox } = settingsStore.get().general;
+  const { showSelectionBox } = store.get().general;
 
   captureSession = {
     startPoint,
@@ -198,6 +203,12 @@ async function finishCapture(): Promise<void> {
   }
   selectionOverlay.hide();
 
+  const coordinator = getInferenceCoordinator();
+  const store = getSettingsStore();
+  if (!coordinator || !store || !captureService) {
+    return;
+  }
+
   const endPoint = screen.getCursorScreenPoint();
   const normalized = normalizeRect(session.startPoint, endPoint);
   const clamped = clampRectToBounds(normalized, session.displayBounds);
@@ -209,7 +220,7 @@ async function finishCapture(): Promise<void> {
 
   try {
     const image = await captureService.captureRegion(session.display, clamped);
-    await inferenceCoordinator.runCaptureQuery(image, settingsStore.get().general);
+    await coordinator.runCaptureQuery(image, store.get().general);
   } catch (error) {
     logger.error('Failed to capture region or run inference.', {
       reason: error instanceof Error ? error.message : 'unknown'
@@ -222,9 +233,14 @@ function startIndicatorPreview(): void {
     return;
   }
 
+  const coordinator = getInferenceCoordinator();
+  if (!coordinator) {
+    return;
+  }
+
   const tick = () => {
     const point = screen.getCursorScreenPoint();
-    const latest = inferenceCoordinator.getLatestState();
+    const latest = coordinator.getLatestState();
     void renderIndicatorAt(point, latest);
   };
 
@@ -247,6 +263,11 @@ async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<
     return;
   }
 
+  const coordinator = getInferenceCoordinator();
+  if (!coordinator) {
+    return;
+  }
+
   if (latest.status === 'pending') {
     await indicatorOverlay.showAt(point, {
       state: 'pending'
@@ -255,7 +276,7 @@ async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<
   }
 
   if (latest.status === 'complete') {
-    inferenceCoordinator.copyLatestForDisplay((text) => clipboard.writeText(text));
+    coordinator.copyLatestForDisplay((text) => clipboard.writeText(text));
     await indicatorOverlay.showAt(point, {
       state: 'complete',
       text: latest.text
@@ -264,7 +285,7 @@ async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<
   }
 
   if (latest.status === 'error') {
-    inferenceCoordinator.copyLatestForDisplay((text) => clipboard.writeText(text));
+    coordinator.copyLatestForDisplay((text) => clipboard.writeText(text));
     await indicatorOverlay.showAt(point, {
       state: 'error',
       text: latest.text
@@ -283,11 +304,29 @@ app.whenReady().then(() => {
     app.dock.hide();
   }
 
+  keyStore = new KeyStore();
+  settingsStore = new SettingsStore();
+  permissionService = new PermissionService();
+  captureService = new CaptureService();
+
+  const latestResponseStore = new LatestResponseStore();
+  inferenceCoordinator = new InferenceCoordinator(
+    new OpenRouterClient(),
+    latestResponseStore,
+    () => keyStore!.getOpenRouterKey()
+  );
+
+  hotkeyManager = new HotkeyManager(
+    new UiohookHotkeyService(),
+    settingsStore.get().hotkeys,
+    handleHotkeyStart,
+    handleHotkeyEnd
+  );
+
   settingsWindow = createSettingsWindow();
   tray = createTray();
 
   applyLaunchAtLoginSetting(settingsStore.get().general.launchAtLogin);
-
   hotkeyManager.start();
 
   registerIpcHandlers({
@@ -312,7 +351,7 @@ app.on('window-all-closed', (event) => {
 });
 
 app.on('before-quit', () => {
-  hotkeyManager.stop();
+  hotkeyManager?.stop();
   selectionOverlay.destroy();
   indicatorOverlay.destroy();
   tray?.destroy();

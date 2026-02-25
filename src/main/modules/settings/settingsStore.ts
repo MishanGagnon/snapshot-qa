@@ -7,6 +7,7 @@ import {
   DEFAULT_APP_SETTINGS,
   DEFAULT_GENERAL_SETTINGS,
   DEFAULT_HOTKEY_MAP,
+  GeneralSettings,
   HotkeyActionId,
   HotkeyMap,
   SUPPORTED_HOTKEY_KEYS
@@ -47,11 +48,12 @@ export class SettingsStore {
   }
 
   updateGeneral(nextGeneral: Partial<AppSettings['general']>): AppSettings {
+    const patch = this.normalizeGeneralPatch(nextGeneral);
     this.settings = {
       ...this.settings,
       general: {
         ...this.settings.general,
-        ...nextGeneral
+        ...patch
       }
     };
     this.persist();
@@ -131,6 +133,32 @@ export class SettingsStore {
       general,
       hotkeys
     };
+  }
+
+  private normalizeGeneralPatch(input: Partial<GeneralSettings>): Partial<GeneralSettings> {
+    const patch: Partial<GeneralSettings> = {};
+
+    if (typeof input.corpus === 'string') {
+      patch.corpus = input.corpus;
+    }
+
+    if (typeof input.customInfo === 'string') {
+      patch.customInfo = input.customInfo;
+    }
+
+    if (typeof input.defaultModel === 'string') {
+      patch.defaultModel = input.defaultModel;
+    }
+
+    if (typeof input.showSelectionBox === 'boolean') {
+      patch.showSelectionBox = input.showSelectionBox;
+    }
+
+    if (typeof input.launchAtLogin === 'boolean') {
+      patch.launchAtLogin = input.launchAtLogin;
+    }
+
+    return patch;
   }
 
   private encode(value: string): Buffer {
