@@ -24,17 +24,20 @@ const indicatorHtml = encodeURIComponent(`
         justify-content: center;
       }
       #bubble {
-        display: block;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         width: 100%;
         height: 100%;
         min-width: 10px;
         min-height: 10px;
         border-radius: 6px;
-        padding: 4px 8px;
+        padding: 2px 6px;
         font-family: "Avenir Next", "IBM Plex Sans", "Helvetica Neue", sans-serif;
         font-size: 12px;
         line-height: 1.3;
         letter-spacing: 0.01em;
+        text-align: center;
         color: #eef2f4;
         background: rgba(25, 30, 36, 0.88);
         border: 1px solid rgba(238, 242, 244, 0.2);
@@ -140,14 +143,14 @@ export class IndicatorOverlay {
   }
 }
 
-const COMPLETE_BUBBLE_MIN_WIDTH = 80;
+const COMPLETE_BUBBLE_MIN_WIDTH = 24;
 const COMPLETE_BUBBLE_MAX_WIDTH = 420;
-const COMPLETE_BUBBLE_MIN_HEIGHT = 28;
+const COMPLETE_BUBBLE_MIN_HEIGHT = 22;
 const COMPLETE_BUBBLE_MAX_LINES = 6;
-const COMPLETE_BUBBLE_HORIZONTAL_PADDING = 16;
-const COMPLETE_BUBBLE_VERTICAL_PADDING = 8;
-const COMPLETE_BUBBLE_LINE_HEIGHT = 16;
-const AVERAGE_GLYPH_WIDTH = 7;
+const COMPLETE_BUBBLE_HORIZONTAL_PADDING = 12;
+const COMPLETE_BUBBLE_VERTICAL_PADDING = 4;
+const COMPLETE_BUBBLE_LINE_HEIGHT = 15;
+const AVERAGE_GLYPH_WIDTH = 5.7;
 
 function getBounds(payload: { state: IndicatorState; text?: string }): { width: number; height: number } {
   if (payload.state === 'pending' || payload.state === 'error') {
@@ -158,19 +161,22 @@ function getBounds(payload: { state: IndicatorState; text?: string }): { width: 
   }
 
   const text = (payload.text ?? '').trim() || 'unknown';
-  const effectiveTextLength = text.length;
-  const estimatedTextWidth = Math.max(1, effectiveTextLength * AVERAGE_GLYPH_WIDTH);
+  const lines = text.replace(/\r/g, '').split('\n');
+  const longestLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0);
+  const estimatedLineWidth = Math.max(1, longestLineLength * AVERAGE_GLYPH_WIDTH);
 
   const width = clamp(
-    estimatedTextWidth + COMPLETE_BUBBLE_HORIZONTAL_PADDING,
+    Math.ceil(estimatedLineWidth + COMPLETE_BUBBLE_HORIZONTAL_PADDING),
     COMPLETE_BUBBLE_MIN_WIDTH,
     COMPLETE_BUBBLE_MAX_WIDTH
   );
 
   const usableTextWidth = Math.max(1, width - COMPLETE_BUBBLE_HORIZONTAL_PADDING);
-  const linesByWidth = Math.ceil(estimatedTextWidth / usableTextWidth);
-  const linesByNewlines = text.split('\n').length;
-  const lineCount = clamp(Math.max(linesByWidth, linesByNewlines), 1, COMPLETE_BUBBLE_MAX_LINES);
+  const wrappedLineCount = lines.reduce((total, line) => {
+    const lineWidth = Math.max(1, line.length * AVERAGE_GLYPH_WIDTH);
+    return total + Math.max(1, Math.ceil(lineWidth / usableTextWidth));
+  }, 0);
+  const lineCount = clamp(wrappedLineCount, 1, COMPLETE_BUBBLE_MAX_LINES);
 
   return {
     width,
