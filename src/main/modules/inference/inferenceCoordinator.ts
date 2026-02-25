@@ -2,6 +2,7 @@ import { GeneralSettings } from '@shared/contracts';
 import { InferenceError } from './errors';
 import { OpenRouterClient } from './openRouterClient';
 import { LatestResponseStore } from '@main/modules/runtime/latestResponseStore';
+import { logger } from '@main/utils/logger';
 
 export class InferenceCoordinator {
   private sequence = 0;
@@ -21,23 +22,37 @@ export class InferenceCoordinator {
     const responseId = ++this.sequence;
     this.latestStore.setPending(responseId);
 
+    logger.info('Inference request queued', {
+      requestId: responseId,
+      model: settings.defaultModel,
+      corpusChars: settings.corpus.length,
+      customInfoChars: settings.customInfo.length
+    });
+
     this.activeAbort?.abort();
     const controller = new AbortController();
     this.activeAbort = controller;
 
     if (!settings.corpus.trim()) {
+      logger.warn('Inference request blocked: missing context', {
+        requestId: responseId
+      });
       this.latestStore.setError(responseId, 'missing_context', 'MISSING_CONTEXT');
       return;
     }
 
     const apiKey = await this.getOpenRouterKey();
     if (!apiKey) {
+      logger.warn('Inference request blocked: missing API key', {
+        requestId: responseId
+      });
       this.latestStore.setError(responseId, 'missing_key', 'MISSING_KEY');
       return;
     }
 
     try {
       const result = await this.client.runVisionQuery({
+        requestId: responseId,
         apiKey,
         model: settings.defaultModel,
         corpus: settings.corpus,
@@ -49,8 +64,16 @@ export class InferenceCoordinator {
 
       const finalText = normalizeAnswer(result.text);
       this.latestStore.setComplete(responseId, finalText);
+      logger.info('Inference request completed', {
+        requestId: responseId,
+        outputChars: finalText.length,
+        corpusTruncated: result.corpusTruncated
+      });
     } catch (error) {
       if (controller.signal.aborted && this.sequence !== responseId) {
+        logger.info('Inference request superseded by newer capture', {
+          requestId: responseId
+        });
         return;
       }
 
@@ -59,6 +82,11 @@ export class InferenceCoordinator {
           ? error
           : new InferenceError('MODEL_ERROR', error instanceof Error ? error.message : 'Model request failed.');
 
+      logger.warn('Inference request failed', {
+        requestId: responseId,
+        code: inferenceError.code,
+        reason: inferenceError.message
+      });
       this.latestStore.setError(responseId, mapErrorText(inferenceError.code), inferenceError.code);
     }
   }

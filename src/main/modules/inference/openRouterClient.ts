@@ -1,8 +1,10 @@
 import { ErrorCode } from '@shared/contracts';
 import { InferenceError } from './errors';
 import { buildPrompt } from './promptBuilder';
+import { logger } from '@main/utils/logger';
 
 export interface OpenRouterQueryInput {
+  requestId?: number;
   apiKey: string;
   model: string;
   corpus: string;
@@ -29,6 +31,12 @@ export class OpenRouterClient {
       imageBase64
     });
 
+    logger.info('Dispatching OpenRouter request', {
+      requestId: input.requestId ?? 'n/a',
+      model: input.model,
+      timeoutMs
+    });
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort('timeout'), timeoutMs);
 
@@ -49,6 +57,11 @@ export class OpenRouterClient {
       if (!response.ok) {
         throw new InferenceError('MODEL_ERROR', await this.extractFailureMessage(response));
       }
+
+      logger.info('OpenRouter response stream opened', {
+        requestId: input.requestId ?? 'n/a',
+        status: response.status
+      });
 
       if (!response.body) {
         throw new InferenceError('NETWORK', 'No response stream received from OpenRouter.');
@@ -89,11 +102,20 @@ export class OpenRouterClient {
       }
 
       const text = aggregated.trim() || 'unknown';
+      logger.info('OpenRouter response completed', {
+        requestId: input.requestId ?? 'n/a',
+        outputChars: text.length,
+        corpusTruncated: prompt.corpusTruncated
+      });
       return {
         text,
         corpusTruncated: prompt.corpusTruncated
       };
     } catch (error) {
+      logger.warn('OpenRouter request failed', {
+        requestId: input.requestId ?? 'n/a',
+        reason: error instanceof Error ? error.message : 'unknown'
+      });
       if (error instanceof InferenceError) {
         throw error;
       }
