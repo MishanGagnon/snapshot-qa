@@ -18,6 +18,7 @@ import { logger } from '@main/utils/logger';
 
 let tray: Tray | null = null;
 let settingsWindow: BrowserWindow | null = null;
+let isQuitting = false;
 
 let keyStore: KeyStore | null = null;
 let settingsStore: SettingsStore | null = null;
@@ -62,6 +63,9 @@ function createSettingsWindow(): BrowserWindow {
   }
 
   win.on('close', (event) => {
+    if (isQuitting) {
+      return;
+    }
     event.preventDefault();
     win.hide();
   });
@@ -347,10 +351,13 @@ app.on('activate', () => {
 });
 
 app.on('window-all-closed', (event) => {
-  event.preventDefault();
+  if (!isQuitting) {
+    event.preventDefault();
+  }
 });
 
 app.on('before-quit', () => {
+  isQuitting = true;
   hotkeyManager?.stop();
   selectionOverlay.destroy();
   indicatorOverlay.destroy();
