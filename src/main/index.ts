@@ -39,6 +39,19 @@ let captureSession: {
 
 let indicatorPoll: NodeJS.Timeout | null = null;
 
+// Tune capture anchor so selection uses the cursor's top-right corner.
+const CAPTURE_CURSOR_ANCHOR_OFFSET = {
+  x: 14,
+  y: -20
+} as const;
+
+function getCaptureAnchorPoint(rawPoint: Point): Point {
+  return {
+    x: rawPoint.x + CAPTURE_CURSOR_ANCHOR_OFFSET.x,
+    y: rawPoint.y + CAPTURE_CURSOR_ANCHOR_OFFSET.y
+  };
+}
+
 function createSettingsWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 760,
@@ -174,7 +187,7 @@ function startCapture(): void {
     return;
   }
 
-  const startPoint = screen.getCursorScreenPoint();
+  const startPoint = getCaptureAnchorPoint(screen.getCursorScreenPoint());
   const display = screen.getDisplayNearestPoint(startPoint);
   const { showSelectionBox } = store.get().general;
 
@@ -194,7 +207,7 @@ function startCapture(): void {
       return;
     }
 
-    const current = screen.getCursorScreenPoint();
+    const current = getCaptureAnchorPoint(screen.getCursorScreenPoint());
     const normalized = normalizeRect(captureSession.startPoint, current);
     const clamped = clampRectToBounds(normalized, captureSession.displayBounds);
     selectionOverlay.updateRect(clamped ? toRelativeRect(clamped, captureSession.displayBounds) : null);
@@ -220,7 +233,7 @@ async function finishCapture(): Promise<void> {
     return;
   }
 
-  const endPoint = screen.getCursorScreenPoint();
+  const endPoint = getCaptureAnchorPoint(screen.getCursorScreenPoint());
   const normalized = normalizeRect(session.startPoint, endPoint);
   const clamped = clampRectToBounds(normalized, session.displayBounds);
 
