@@ -14,7 +14,7 @@ import { PermissionService } from '@main/modules/permissions/permissionService';
 import { LatestResponseStore } from '@main/modules/runtime/latestResponseStore';
 import { KeyStore } from '@main/modules/security/keyStore';
 import { SettingsStore } from '@main/modules/settings/settingsStore';
-import { clampRectToBounds, normalizeRect, Point, toRelativeRect } from '@main/utils/geometry';
+import { clampRectToBounds, NormalizedRect, normalizeRect, Point, toRelativeRect } from '@main/utils/geometry';
 import { logger } from '@main/utils/logger';
 
 let tray: Tray | null = null;
@@ -36,6 +36,8 @@ let captureSession: {
   startPoint: Point;
   displayBounds: Electron.Rectangle;
   display: Electron.Display;
+  showSelectionBox: boolean;
+  lastDrawnRect: NormalizedRect | null;
   poll?: NodeJS.Timeout;
 } | null = null;
 
@@ -183,7 +185,9 @@ function startCapture(): void {
   captureSession = {
     startPoint,
     display,
-    displayBounds: display.bounds
+    displayBounds: display.bounds,
+    showSelectionBox,
+    lastDrawnRect: null
   };
 
   if (!showSelectionBox) {
@@ -199,6 +203,7 @@ function startCapture(): void {
     const current = cursorPositionService.getTargetPoint('capture');
     const normalized = normalizeRect(captureSession.startPoint, current);
     const clamped = clampRectToBounds(normalized, captureSession.displayBounds);
+    captureSession.lastDrawnRect = clamped;
     selectionOverlay.updateRect(clamped ? toRelativeRect(clamped, captureSession.displayBounds) : null);
   }, 16);
 }
@@ -214,7 +219,6 @@ async function finishCapture(): Promise<void> {
   if (session.poll) {
     clearInterval(session.poll);
   }
-  selectionOverlay.hide();
 
   const coordinator = getInferenceCoordinator();
   const store = getSettingsStore();
@@ -225,7 +229,10 @@ async function finishCapture(): Promise<void> {
 
   const endPoint = cursorPositionService.getTargetPoint('capture');
   const normalized = normalizeRect(session.startPoint, endPoint);
-  const clamped = clampRectToBounds(normalized, session.displayBounds);
+  const clampedAtRelease = clampRectToBounds(normalized, session.displayBounds);
+  const clamped = session.showSelectionBox && session.lastDrawnRect ? session.lastDrawnRect : clampedAtRelease;
+
+  selectionOverlay.hide();
 
   if (!clamped) {
     logger.warn('Capture ignored due to tiny region.');

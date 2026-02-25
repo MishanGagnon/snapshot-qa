@@ -16,6 +16,7 @@ const selectionHtml = encodeURIComponent(`
       }
       #box {
         position: absolute;
+        box-sizing: border-box;
         border: 1px solid rgba(236, 239, 241, 0.65);
         background: rgba(236, 239, 241, 0.09);
         border-radius: 6px;

@@ -47,15 +47,24 @@ export class CaptureService {
     const scaleX = sourceWidth / display.bounds.width;
     const scaleY = sourceHeight / display.bounds.height;
 
-    const left = Math.max(0, Math.floor((region.x - display.bounds.x) * scaleX));
-    const top = Math.max(0, Math.floor((region.y - display.bounds.y) * scaleY));
-    const width = Math.max(1, Math.floor(region.width * scaleX));
-    const height = Math.max(1, Math.floor(region.height * scaleY));
+    const sourceLeft = (region.x - display.bounds.x) * scaleX;
+    const sourceTop = (region.y - display.bounds.y) * scaleY;
+    const sourceRight = (region.x + region.width - display.bounds.x) * scaleX;
+    const sourceBottom = (region.y + region.height - display.bounds.y) * scaleY;
+
+    const left = Math.max(0, Math.floor(sourceLeft));
+    const top = Math.max(0, Math.floor(sourceTop));
+    const right = Math.min(sourceWidth, Math.ceil(sourceRight));
+    const bottom = Math.min(sourceHeight, Math.ceil(sourceBottom));
+    const width = Math.max(1, right - left);
+    const height = Math.max(1, bottom - top);
 
     logger.info('Capturing region', {
       displayId: display.id,
       left,
       top,
+      right,
+      bottom,
       width,
       height
     });
