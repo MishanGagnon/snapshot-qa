@@ -88,6 +88,7 @@ body {
 }
 
 .tab-nav-shell {
+  margin-top: 16px;
   padding: 2px;
   border-radius: 11px;
   border: 1px solid var(--line-soft);
@@ -396,6 +397,10 @@ body {
 @media (max-width: 760px) {
   .app-shell {
     padding: var(--space-4);
+  }
+
+  .tab-nav-shell {
+    margin-top: 12px;
   }
 
   .hotkey-row {
