@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type TabId = 'general' | 'hotkeys' | 'keys';
+export type TabId = 'general' | 'hotkeys' | 'models';
 
 interface TabNavProps {
   activeTab: TabId;
@@ -10,7 +10,7 @@ interface TabNavProps {
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'general', label: 'General' },
   { id: 'hotkeys', label: 'Hotkeys' },
-  { id: 'keys', label: 'API Keys' }
+  { id: 'models', label: 'Models' }
 ];
 
 export function TabNav({ activeTab, onChange }: TabNavProps): JSX.Element {

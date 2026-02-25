@@ -16,15 +16,15 @@ import { getDesktopApi } from '@renderer/lib/desktopApi';
 const TAB_COPY: Record<TabId, { title: string; subtitle: string }> = {
   general: {
     title: 'General',
-    subtitle: 'Context, inference defaults, and runtime behavior.'
+    subtitle: 'Context and runtime behavior.'
   },
   hotkeys: {
     title: 'Hotkeys',
     subtitle: 'Remap actions with instant validation and apply.'
   },
-  keys: {
-    title: 'API Keys',
-    subtitle: 'Store OpenRouter credentials securely in macOS Keychain.'
+  models: {
+    title: 'Models',
+    subtitle: 'Choose default OpenRouter model and manage credentials.'
   }
 };
 
@@ -80,6 +80,12 @@ export function App(): JSX.Element {
     setFeedback('General settings saved.');
   };
 
+  const saveDefaultModel = async (defaultModel: string) => {
+    const updated = await api.settings.update({ defaultModel });
+    setSettings(updated);
+    setFeedback('Default model updated.');
+  };
+
   const saveHotkeys = async (map: HotkeyMap): Promise<HotkeyUpdateResponse> => {
     const result = await api.hotkeys.update(map);
     if (result.ok) {
@@ -103,26 +109,6 @@ export function App(): JSX.Element {
 
   return (
     <main className="app-shell">
-      <header className="header">
-        <div className="header__identity">
-          <div className="window-chrome" aria-hidden>
-            <span className="window-chrome__dot window-chrome__dot--close" />
-            <span className="window-chrome__dot window-chrome__dot--min" />
-            <span className="window-chrome__dot window-chrome__dot--zoom" />
-          </div>
-          <div>
-            <h1>Discreet QA</h1>
-            <p>Low-visibility screenshot recall assistant</p>
-          </div>
-        </div>
-
-        <div className="header__meta">
-          <div className={`pill ${keyStatus.hasOpenRouterKey ? 'is-ok' : 'is-warn'}`}>
-            Key: {keyStatus.hasOpenRouterKey ? 'configured' : 'missing'}
-          </div>
-        </div>
-      </header>
-
       <TabNav activeTab={activeTab} onChange={setActiveTab} />
 
       <section className="content-frame">
@@ -139,8 +125,13 @@ export function App(): JSX.Element {
           <HotkeySettingsForm initialValue={hotkeys} onSave={saveHotkeys} onValidate={validateHotkeys} />
         ) : null}
 
-        {activeTab === 'keys' ? (
-          <ApiKeysSettingsForm hasOpenRouterKey={keyStatus.hasOpenRouterKey} onSave={saveOpenRouterKey} />
+        {activeTab === 'models' ? (
+          <ApiKeysSettingsForm
+            hasOpenRouterKey={keyStatus.hasOpenRouterKey}
+            defaultModel={settings.general.defaultModel}
+            onSaveKey={saveOpenRouterKey}
+            onSaveModel={saveDefaultModel}
+          />
         ) : null}
       </section>
 

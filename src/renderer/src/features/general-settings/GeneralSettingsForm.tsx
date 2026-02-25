@@ -50,16 +50,6 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
         />
       </label>
 
-      <label className="field">
-        <span className="field__label">Default OpenRouter Model</span>
-        <input
-          className="field__input"
-          value={draft.defaultModel}
-          onChange={(event) => setDraft((prev) => ({ ...prev, defaultModel: event.target.value }))}
-          placeholder="google/gemini-3-flash-preview"
-        />
-      </label>
-
       <div className="toggle-grid">
         <label className="toggle">
           <input
