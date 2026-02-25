@@ -67,7 +67,11 @@ export class InferenceCoordinator {
       logger.info('Inference request completed', {
         requestId: responseId,
         outputChars: finalText.length,
-        corpusTruncated: result.corpusTruncated
+        corpusTruncated: result.corpusTruncated,
+        promptTokens: result.usage?.promptTokens ?? 'n/a',
+        completionTokens: result.usage?.completionTokens ?? 'n/a',
+        reportedCostUsd: typeof result.reportedCostUsd === 'number' ? result.reportedCostUsd.toFixed(8) : 'n/a',
+        estimatedCostUsd: result.costEstimateUsd ? result.costEstimateUsd.totalUsd.toFixed(8) : 'n/a'
       });
     } catch (error) {
       if (controller.signal.aborted && this.sequence !== responseId) {

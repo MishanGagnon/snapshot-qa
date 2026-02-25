@@ -24,8 +24,13 @@ export const logger = {
 
 function sanitizeMeta(meta: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
+  const sensitiveKeyPatterns = [/api[_-]?key/i, /secret/i, /password/i, /authorization/i, /^token$/i, /bearer/i];
+
   for (const [key, value] of Object.entries(meta)) {
-    if (key.toLowerCase().includes('key') || key.toLowerCase().includes('token')) {
+    const hasSensitiveKey = sensitiveKeyPatterns.some((pattern) => pattern.test(key));
+    const hasSensitiveValue = typeof value === 'string' && /^sk-[a-z0-9_-]+/i.test(value);
+
+    if (hasSensitiveKey || hasSensitiveValue) {
       sanitized[key] = '[redacted]';
       continue;
     }
