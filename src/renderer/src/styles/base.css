@@ -314,6 +314,41 @@ body {
   justify-items: end;
 }
 
+.hotkey-capture {
+  align-items: end;
+}
+
+.hotkey-capture__value {
+  min-width: 110px;
+  text-align: center;
+  font-family: 'SF Pro Display', 'Avenir Next', sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
+}
+
+.hotkey-capture__value.is-recording {
+  color: var(--accent);
+  border-color: rgba(10, 132, 255, 0.42);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.12);
+}
+
+.hotkey-capture__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.button--recording {
+  border-color: rgba(10, 132, 255, 0.55);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .modifier-list {
   display: flex;
   gap: 6px;
@@ -409,6 +444,10 @@ body {
 
   .hotkey-row__controls {
     justify-items: start;
+  }
+
+  .hotkey-capture__actions {
+    flex-wrap: wrap;
   }
 
   .modifier-list {

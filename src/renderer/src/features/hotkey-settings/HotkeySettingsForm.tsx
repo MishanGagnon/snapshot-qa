@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  HotkeyActionId,
+  HotkeyBinding,
   HOTKEY_ACTION_DEFINITIONS,
+  HotkeyKey,
   HotkeyMap,
   HotkeyModifier,
   HotkeyUpdateResponse,
@@ -14,16 +17,78 @@ interface HotkeySettingsFormProps {
   onSave: (map: HotkeyMap) => Promise<HotkeyUpdateResponse>;
 }
 
-const modifiers: HotkeyModifier[] = ['cmd', 'shift', 'ctrl', 'alt'];
+const modifierOrder: HotkeyModifier[] = ['cmd', 'shift', 'ctrl', 'alt'];
+const modifierGlyph: Record<HotkeyModifier, string> = {
+  cmd: '⌘',
+  shift: '⇧',
+  ctrl: '⌃',
+  alt: '⌥'
+};
 
 export function HotkeySettingsForm({ initialValue, onValidate, onSave }: HotkeySettingsFormProps): JSX.Element {
   const [draft, setDraft] = useState<HotkeyMap>(initialValue);
   const [validation, setValidation] = useState<HotkeyValidationResult | null>(null);
+  const [recordingActionId, setRecordingActionId] = useState<HotkeyActionId | null>(null);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setDraft(initialValue);
   }, [initialValue]);
+
+  useEffect(() => {
+    if (!recordingActionId) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (event.repeat) {
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        setRecordingActionId(null);
+        setRecordingError(null);
+        return;
+      }
+
+      const key = parseSupportedKey(event);
+      if (!key) {
+        if (!isModifierOnlyKey(event.key)) {
+          setRecordingError('Use A-Z or 0-9 as the primary key.');
+        }
+        return;
+      }
+
+      const modifiers = parseModifiers(event);
+      if (modifiers.length === 0) {
+        setRecordingError('Include at least one modifier key (Cmd, Shift, Ctrl, or Alt).');
+        return;
+      }
+
+      const nextBinding: HotkeyBinding = {
+        actionId: recordingActionId,
+        key,
+        modifiers
+      };
+
+      setDraft((prev) => ({
+        ...prev,
+        [recordingActionId]: nextBinding
+      }));
+      setValidation(null);
+      setRecordingError(null);
+      setRecordingActionId(null);
+    };
+
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [recordingActionId]);
 
   const hasErrors = useMemo(() => Boolean(validation && !validation.valid), [validation]);
 
@@ -49,64 +114,47 @@ export function HotkeySettingsForm({ initialValue, onValidate, onSave }: HotkeyS
     >
       {HOTKEY_ACTION_DEFINITIONS.map((action) => {
         const current = draft[action.id];
+        const isRecording = recordingActionId === action.id;
         return (
           <section className="hotkey-row" key={action.id}>
             <div className="hotkey-row__meta">
               <h3>{action.label}</h3>
               <p>{action.description}</p>
+              {isRecording ? <p className="helper-text">Press your shortcut now. Press Esc to cancel.</p> : null}
+              {isRecording && recordingError ? <p className="error-text">{recordingError}</p> : null}
               {validation?.errors[action.id] ? <p className="error-text">{validation.errors[action.id]}</p> : null}
             </div>
 
-            <div className="hotkey-row__controls">
-              <select
-                className="field__select"
-                value={current.key}
-                onChange={(event) =>
-                  setDraft((prev) => ({
-                    ...prev,
-                    [action.id]: {
-                      ...prev[action.id],
-                      key: event.target.value as (typeof current)['key']
-                    }
-                  }))
-                }
-              >
-                {SUPPORTED_HOTKEY_KEYS.map((key) => (
-                  <option key={key} value={key}>
-                    {key}
-                  </option>
-                ))}
-              </select>
+            <div className="hotkey-row__controls hotkey-capture">
+              <div className={`hotkey-capture__value ${isRecording ? 'is-recording' : ''}`}>
+                {isRecording ? 'Press shortcut...' : formatBinding(current)}
+              </div>
 
-              <div className="modifier-list">
-                {modifiers.map((modifier) => {
-                  const checked = current.modifiers.includes(modifier);
-                  return (
-                    <label className="modifier" key={`${action.id}-${modifier}`}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(event) => {
-                          setDraft((prev) => {
-                            const existing = prev[action.id].modifiers;
-                            const nextModifiers = event.target.checked
-                              ? [...existing, modifier]
-                              : existing.filter((item) => item !== modifier);
+              <div className="hotkey-capture__actions">
+                <button
+                  type="button"
+                  className={`button ${isRecording ? 'button--recording' : ''}`}
+                  onClick={() => {
+                    setRecordingActionId(action.id);
+                    setRecordingError(null);
+                  }}
+                >
+                  {isRecording ? 'Recording...' : 'Record Shortcut'}
+                </button>
 
-                            return {
-                              ...prev,
-                              [action.id]: {
-                                ...prev[action.id],
-                                modifiers: nextModifiers
-                              }
-                            };
-                          });
-                        }}
-                      />
-                      <span>{modifier}</span>
-                    </label>
-                  );
-                })}
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => {
+                    setDraft((prev) => ({
+                      ...prev,
+                      [action.id]: action.defaultBinding
+                    }));
+                    setValidation(null);
+                  }}
+                >
+                  Use Default
+                </button>
               </div>
             </div>
           </section>
@@ -137,4 +185,66 @@ export function HotkeySettingsForm({ initialValue, onValidate, onSave }: HotkeyS
       </div>
     </form>
   );
+}
+
+function parseSupportedKey(event: KeyboardEvent): HotkeyKey | null {
+  const byCode = parseKeyFromCode(event.code);
+  if (byCode) {
+    return byCode;
+  }
+
+  const key = event.key?.toUpperCase();
+  if (key && SUPPORTED_HOTKEY_KEYS.includes(key as HotkeyKey)) {
+    return key as HotkeyKey;
+  }
+
+  return null;
+}
+
+function parseKeyFromCode(code: string): HotkeyKey | null {
+  if (code.startsWith('Key') && code.length === 4) {
+    const letter = code.slice(3).toUpperCase();
+    if (SUPPORTED_HOTKEY_KEYS.includes(letter as HotkeyKey)) {
+      return letter as HotkeyKey;
+    }
+  }
+
+  if (code.startsWith('Digit') && code.length === 6) {
+    const digit = code.slice(5);
+    if (SUPPORTED_HOTKEY_KEYS.includes(digit as HotkeyKey)) {
+      return digit as HotkeyKey;
+    }
+  }
+
+  return null;
+}
+
+function parseModifiers(event: KeyboardEvent): HotkeyModifier[] {
+  const modifiers: HotkeyModifier[] = [];
+  if (event.metaKey) {
+    modifiers.push('cmd');
+  }
+  if (event.shiftKey) {
+    modifiers.push('shift');
+  }
+  if (event.ctrlKey) {
+    modifiers.push('ctrl');
+  }
+  if (event.altKey) {
+    modifiers.push('alt');
+  }
+  return modifierOrder.filter((modifier) => modifiers.includes(modifier));
+}
+
+function isModifierOnlyKey(key: string): boolean {
+  return key === 'Meta' || key === 'Shift' || key === 'Control' || key === 'Alt';
+}
+
+function formatBinding(binding: HotkeyBinding): string {
+  const modifierPart = modifierOrder
+    .filter((modifier) => binding.modifiers.includes(modifier))
+    .map((modifier) => modifierGlyph[modifier])
+    .join('');
+
+  return `${modifierPart}${binding.key}`;
 }
