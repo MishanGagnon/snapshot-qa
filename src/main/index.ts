@@ -9,6 +9,7 @@ import { OpenRouterClient } from '@main/modules/inference/openRouterClient';
 import { registerIpcHandlers } from '@main/modules/ipc/registerIpcHandlers';
 import { IndicatorOverlay } from '@main/modules/overlay/indicatorOverlay';
 import { SelectionOverlay } from '@main/modules/overlay/selectionOverlay';
+import { CursorPositionService } from '@main/modules/cursor/cursorPositionService';
 import { PermissionService } from '@main/modules/permissions/permissionService';
 import { LatestResponseStore } from '@main/modules/runtime/latestResponseStore';
 import { KeyStore } from '@main/modules/security/keyStore';
@@ -29,6 +30,7 @@ let hotkeyManager: HotkeyManager | null = null;
 
 const selectionOverlay = new SelectionOverlay();
 const indicatorOverlay = new IndicatorOverlay();
+const cursorPositionService = new CursorPositionService();
 
 let captureSession: {
   startPoint: Point;
@@ -38,19 +40,6 @@ let captureSession: {
 } | null = null;
 
 let indicatorPoll: NodeJS.Timeout | null = null;
-
-// Tune capture anchor so selection uses the cursor's top-right corner.
-const CAPTURE_CURSOR_ANCHOR_OFFSET = {
-  x: 14,
-  y: -20
-} as const;
-
-function getCaptureAnchorPoint(rawPoint: Point): Point {
-  return {
-    x: rawPoint.x + CAPTURE_CURSOR_ANCHOR_OFFSET.x,
-    y: rawPoint.y + CAPTURE_CURSOR_ANCHOR_OFFSET.y
-  };
-}
 
 function createSettingsWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -187,7 +176,7 @@ function startCapture(): void {
     return;
   }
 
-  const startPoint = getCaptureAnchorPoint(screen.getCursorScreenPoint());
+  const startPoint = cursorPositionService.getTargetPoint('capture');
   const display = screen.getDisplayNearestPoint(startPoint);
   const { showSelectionBox } = store.get().general;
 
@@ -207,7 +196,7 @@ function startCapture(): void {
       return;
     }
 
-    const current = getCaptureAnchorPoint(screen.getCursorScreenPoint());
+    const current = cursorPositionService.getTargetPoint('capture');
     const normalized = normalizeRect(captureSession.startPoint, current);
     const clamped = clampRectToBounds(normalized, captureSession.displayBounds);
     selectionOverlay.updateRect(clamped ? toRelativeRect(clamped, captureSession.displayBounds) : null);
@@ -233,7 +222,7 @@ async function finishCapture(): Promise<void> {
     return;
   }
 
-  const endPoint = getCaptureAnchorPoint(screen.getCursorScreenPoint());
+  const endPoint = cursorPositionService.getTargetPoint('capture');
   const normalized = normalizeRect(session.startPoint, endPoint);
   const clamped = clampRectToBounds(normalized, session.displayBounds);
 
@@ -263,7 +252,7 @@ function startIndicatorPreview(): void {
   }
 
   const tick = () => {
-    const point = screen.getCursorScreenPoint();
+    const point = cursorPositionService.getTargetPoint('indicator');
     const latest = coordinator.getLatestState();
     void renderIndicatorAt(point, latest);
   };

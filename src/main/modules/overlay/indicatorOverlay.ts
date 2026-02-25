@@ -110,8 +110,8 @@ export class IndicatorOverlay {
 
     const bounds = getBounds(payload);
     this.window.setBounds({
-      x: point.x + 12,
-      y: point.y + 16,
+      x: point.x,
+      y: point.y,
       width: bounds.width,
       height: bounds.height
     });
