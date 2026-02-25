@@ -15,7 +15,8 @@ const tabs: Array<{ id: TabId; label: string }> = [
 
 export function TabNav({ activeTab, onChange }: TabNavProps): JSX.Element {
   return (
-    <div className="tab-nav" role="tablist" aria-label="Settings sections">
+    <div className="tab-nav-shell">
+      <div className="tab-nav" role="tablist" aria-label="Settings sections">
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -28,6 +29,7 @@ export function TabNav({ activeTab, onChange }: TabNavProps): JSX.Element {
           {tab.label}
         </button>
       ))}
+      </div>
     </div>
   );
 }

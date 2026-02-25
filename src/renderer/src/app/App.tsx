@@ -13,6 +13,21 @@ import { GeneralSettingsForm } from '@renderer/features/general-settings/General
 import { HotkeySettingsForm } from '@renderer/features/hotkey-settings/HotkeySettingsForm';
 import { getDesktopApi } from '@renderer/lib/desktopApi';
 
+const TAB_COPY: Record<TabId, { title: string; subtitle: string }> = {
+  general: {
+    title: 'General',
+    subtitle: 'Context, inference defaults, and runtime behavior.'
+  },
+  hotkeys: {
+    title: 'Hotkeys',
+    subtitle: 'Remap actions with instant validation and apply.'
+  },
+  keys: {
+    title: 'API Keys',
+    subtitle: 'Store OpenRouter credentials securely in macOS Keychain.'
+  }
+};
+
 export function App(): JSX.Element {
   const api = useMemo(() => getDesktopApi(), []);
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -44,7 +59,7 @@ export function App(): JSX.Element {
 
   if (!api) {
     return (
-      <main className="app-shell">
+      <main className="app-shell app-shell--center">
         <section className="panel">
           <h2>Renderer Bridge Not Available</h2>
           <p className="helper-text">
@@ -56,7 +71,7 @@ export function App(): JSX.Element {
   }
 
   if (!settings || !hotkeys || !keyStatus) {
-    return <main className="app-shell">Loading settings...</main>;
+    return <main className="app-shell app-shell--center">Loading settings...</main>;
   }
 
   const saveGeneral = async (general: AppSettings['general']) => {
@@ -84,28 +99,50 @@ export function App(): JSX.Element {
     setFeedback('OpenRouter key saved to Keychain.');
   };
 
+  const tabCopy = TAB_COPY[activeTab];
+
   return (
     <main className="app-shell">
       <header className="header">
-        <div>
-          <h1>Discreet QA</h1>
-          <p>Low-visibility screenshot recall assistant</p>
+        <div className="header__identity">
+          <div className="window-chrome" aria-hidden>
+            <span className="window-chrome__dot window-chrome__dot--close" />
+            <span className="window-chrome__dot window-chrome__dot--min" />
+            <span className="window-chrome__dot window-chrome__dot--zoom" />
+          </div>
+          <div>
+            <h1>Discreet QA</h1>
+            <p>Low-visibility screenshot recall assistant</p>
+          </div>
+        </div>
+
+        <div className="header__meta">
+          <div className={`pill ${keyStatus.hasOpenRouterKey ? 'is-ok' : 'is-warn'}`}>
+            Key: {keyStatus.hasOpenRouterKey ? 'configured' : 'missing'}
+          </div>
         </div>
       </header>
 
       <TabNav activeTab={activeTab} onChange={setActiveTab} />
 
-      {activeTab === 'general' ? (
-        <GeneralSettingsForm initialValue={settings.general} permissions={permissions} onSave={saveGeneral} />
-      ) : null}
+      <section className="content-frame">
+        <header className="content-frame__header">
+          <h2>{tabCopy.title}</h2>
+          <p>{tabCopy.subtitle}</p>
+        </header>
 
-      {activeTab === 'hotkeys' ? (
-        <HotkeySettingsForm initialValue={hotkeys} onSave={saveHotkeys} onValidate={validateHotkeys} />
-      ) : null}
+        {activeTab === 'general' ? (
+          <GeneralSettingsForm initialValue={settings.general} permissions={permissions} onSave={saveGeneral} />
+        ) : null}
 
-      {activeTab === 'keys' ? (
-        <ApiKeysSettingsForm hasOpenRouterKey={keyStatus.hasOpenRouterKey} onSave={saveOpenRouterKey} />
-      ) : null}
+        {activeTab === 'hotkeys' ? (
+          <HotkeySettingsForm initialValue={hotkeys} onSave={saveHotkeys} onValidate={validateHotkeys} />
+        ) : null}
+
+        {activeTab === 'keys' ? (
+          <ApiKeysSettingsForm hasOpenRouterKey={keyStatus.hasOpenRouterKey} onSave={saveOpenRouterKey} />
+        ) : null}
+      </section>
 
       <footer className="footer-status">{feedback}</footer>
     </main>
