@@ -3,6 +3,7 @@ import screenshot from 'screenshot-desktop';
 import sharp from 'sharp';
 import { NormalizedRect } from '@main/utils/geometry';
 import { logger } from '@main/utils/logger';
+import { writeLatestImageArtifact } from '@main/modules/debug/imageArtifact';
 
 export interface CaptureOptions {
   imageCompressionEnabled: boolean;
@@ -114,6 +115,19 @@ export class CaptureService {
       finalWidth,
       finalHeight
     });
+
+    try {
+      const captureImagePath = await writeLatestImageArtifact('latest-capture.png', buffer);
+      logger.info('Wrote latest capture image artifact', {
+        captureImagePath,
+        finalWidth,
+        finalHeight
+      });
+    } catch (error) {
+      logger.warn('Failed to write latest capture image artifact', {
+        reason: error instanceof Error ? error.message : 'unknown'
+      });
+    }
 
     return {
       buffer,

@@ -1,6 +1,7 @@
 export interface UsageSnapshot {
   promptTokens: number | null;
   completionTokens: number | null;
+  reasoningTokens?: number | null;
   totalTokens: number | null;
   cachedPromptTokens: number | null;
   cacheWritePromptTokens: number | null;
@@ -33,6 +34,16 @@ export function normalizeUsage(raw: unknown): UsageSnapshot | null {
   const completionTokens = toFiniteNumber(
     usage.completion_tokens ?? usage.output_tokens ?? usage.completionTokens ?? usage.outputTokens
   );
+  const completionTokenDetails = (usage.completion_tokens_details ??
+    usage.completionTokensDetails ??
+    usage.output_tokens_details ??
+    usage.outputTokensDetails) as Record<string, unknown> | undefined;
+  const reasoningTokens = toFiniteNumber(
+    completionTokenDetails?.reasoning_tokens ??
+      completionTokenDetails?.reasoningTokens ??
+      usage.reasoning_tokens ??
+      usage.reasoningTokens
+  );
   const totalTokens = toFiniteNumber(usage.total_tokens ?? usage.totalTokens);
   const promptTokenDetails = (usage.prompt_tokens_details ??
     usage.promptTokensDetails ??
@@ -49,6 +60,7 @@ export function normalizeUsage(raw: unknown): UsageSnapshot | null {
   if (
     promptTokens === null &&
     completionTokens === null &&
+    reasoningTokens === null &&
     totalTokens === null &&
     cachedPromptTokens === null &&
     cacheWritePromptTokens === null &&
@@ -60,6 +72,7 @@ export function normalizeUsage(raw: unknown): UsageSnapshot | null {
   return {
     promptTokens,
     completionTokens,
+    reasoningTokens,
     totalTokens,
     cachedPromptTokens,
     cacheWritePromptTokens,

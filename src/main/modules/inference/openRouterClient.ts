@@ -2,6 +2,7 @@ import { ErrorCode } from '@shared/contracts';
 import { InferenceError } from './errors';
 import { buildPrompt } from './promptBuilder';
 import { logger } from '@main/utils/logger';
+import { writeLatestImageArtifact } from '@main/modules/debug/imageArtifact';
 import {
   CostEstimate,
   TokenPricing,
@@ -44,6 +45,21 @@ export class OpenRouterClient {
 
   async runVisionQuery(input: OpenRouterQueryInput): Promise<OpenRouterQueryResult> {
     const timeoutMs = input.timeoutMs ?? 20_000;
+
+    try {
+      const sentImagePath = await writeLatestImageArtifact('latest-sent-image.png', input.imageBuffer);
+      logger.info('Wrote latest sent image artifact', {
+        requestId: input.requestId ?? 'n/a',
+        sentImagePath,
+        imageBytes: input.imageBuffer.length
+      });
+    } catch (error) {
+      logger.warn('Failed to write latest sent image artifact', {
+        requestId: input.requestId ?? 'n/a',
+        reason: error instanceof Error ? error.message : 'unknown'
+      });
+    }
+
     const imageBase64 = input.imageBuffer.toString('base64');
     const prompt = buildPrompt({
       corpus: input.corpus,
@@ -251,10 +267,17 @@ export class OpenRouterClient {
       return;
     }
 
+    const nonReasoningCompletionTokens =
+      usage.completionTokens !== null && usage.reasoningTokens !== null
+        ? Math.max(0, usage.completionTokens - usage.reasoningTokens)
+        : null;
+
     logger.info('OpenRouter usage summary', {
       requestId: requestId ?? 'n/a',
       promptTokens: usage.promptTokens ?? 'n/a',
       completionTokens: usage.completionTokens ?? 'n/a',
+      reasoningTokens: usage.reasoningTokens ?? 'n/a',
+      nonReasoningCompletionTokens: nonReasoningCompletionTokens ?? 'n/a',
       totalTokens: usage.totalTokens ?? 'n/a',
       cachedPromptTokens: usage.cachedPromptTokens ?? 'n/a',
       cacheWritePromptTokens: usage.cacheWritePromptTokens ?? 'n/a',

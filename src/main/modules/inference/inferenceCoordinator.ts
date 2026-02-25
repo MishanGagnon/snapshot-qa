@@ -67,6 +67,13 @@ export class InferenceCoordinator {
 
       const finalText = normalizeAnswer(result.text);
       this.latestStore.setComplete(responseId, finalText);
+      const nonReasoningCompletionTokens =
+        result.usage?.completionTokens !== null &&
+        result.usage?.completionTokens !== undefined &&
+        result.usage?.reasoningTokens !== null &&
+        result.usage?.reasoningTokens !== undefined
+          ? Math.max(0, result.usage.completionTokens - result.usage.reasoningTokens)
+          : 'n/a';
       logger.info('Inference request completed', {
         requestId: responseId,
         outputChars: finalText.length,
@@ -74,6 +81,8 @@ export class InferenceCoordinator {
         corpusTruncated: result.corpusTruncated,
         promptTokens: result.usage?.promptTokens ?? 'n/a',
         completionTokens: result.usage?.completionTokens ?? 'n/a',
+        reasoningTokens: result.usage?.reasoningTokens ?? 'n/a',
+        nonReasoningCompletionTokens,
         reportedCostUsd: typeof result.reportedCostUsd === 'number' ? result.reportedCostUsd.toFixed(8) : 'n/a',
         estimatedCostUsd: result.costEstimateUsd ? result.costEstimateUsd.totalUsd.toFixed(8) : 'n/a'
       });

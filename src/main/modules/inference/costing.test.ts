@@ -12,6 +12,7 @@ describe('normalizeUsage', () => {
     expect(usage).toEqual({
       promptTokens: 120,
       completionTokens: 30,
+      reasoningTokens: null,
       totalTokens: 150,
       cachedPromptTokens: null,
       cacheWritePromptTokens: null,
@@ -28,6 +29,7 @@ describe('normalizeUsage', () => {
     expect(usage).toEqual({
       promptTokens: 200,
       completionTokens: 20,
+      reasoningTokens: null,
       totalTokens: null,
       cachedPromptTokens: null,
       cacheWritePromptTokens: null,
@@ -45,6 +47,7 @@ describe('normalizeUsage', () => {
     expect(usage).toEqual({
       promptTokens: 10,
       completionTokens: 5,
+      reasoningTokens: null,
       totalTokens: null,
       cachedPromptTokens: null,
       cacheWritePromptTokens: null,
@@ -65,9 +68,30 @@ describe('normalizeUsage', () => {
     expect(usage).toEqual({
       promptTokens: 2000,
       completionTokens: 20,
+      reasoningTokens: null,
       totalTokens: null,
       cachedPromptTokens: 1500,
       cacheWritePromptTokens: 300,
+      costUsd: null
+    });
+  });
+
+  it('captures reasoning tokens from completion token details', () => {
+    const usage = normalizeUsage({
+      prompt_tokens: 100,
+      completion_tokens: 60,
+      completion_tokens_details: {
+        reasoning_tokens: 58
+      }
+    });
+
+    expect(usage).toEqual({
+      promptTokens: 100,
+      completionTokens: 60,
+      reasoningTokens: 58,
+      totalTokens: null,
+      cachedPromptTokens: null,
+      cacheWritePromptTokens: null,
       costUsd: null
     });
   });
