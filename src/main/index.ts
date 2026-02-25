@@ -70,6 +70,13 @@ function createSettingsWindow(): BrowserWindow {
     win.hide();
   });
 
+  // Open settings automatically on app launch, then allow hide/toggle via tray.
+  win.once('ready-to-show', () => {
+    if (!isQuitting) {
+      win.show();
+    }
+  });
+
   return win;
 }
 
