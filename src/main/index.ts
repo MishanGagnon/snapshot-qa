@@ -221,6 +221,7 @@ async function finishCapture(): Promise<void> {
   if (!coordinator || !store || !captureService) {
     return;
   }
+  const generalSettings = store.get().general;
 
   const endPoint = cursorPositionService.getTargetPoint('capture');
   const normalized = normalizeRect(session.startPoint, endPoint);
@@ -232,8 +233,10 @@ async function finishCapture(): Promise<void> {
   }
 
   try {
-    const image = await captureService.captureRegion(session.display, clamped);
-    await coordinator.runCaptureQuery(image, store.get().general);
+    const capture = await captureService.captureRegion(session.display, clamped, {
+      imageCompressionEnabled: generalSettings.imageCompressionEnabled
+    });
+    await coordinator.runCaptureQuery(capture, generalSettings);
   } catch (error) {
     logger.error('Failed to capture region or run inference.', {
       reason: error instanceof Error ? error.message : 'unknown'

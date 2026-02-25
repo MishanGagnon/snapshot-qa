@@ -19,6 +19,8 @@ export interface OpenRouterQueryInput {
   corpus: string;
   customInfo: string;
   imageBuffer: Buffer;
+  imageMimeType: string;
+  contextCachingEnabled: boolean;
   timeoutMs?: number;
   signal?: AbortSignal;
   onToken?: (chunk: string) => void;
@@ -47,13 +49,17 @@ export class OpenRouterClient {
       corpus: input.corpus,
       customInfo: input.customInfo,
       model: input.model,
-      imageBase64
+      imageBase64,
+      imageMimeType: input.imageMimeType,
+      contextCachingEnabled: input.contextCachingEnabled
     });
 
     logger.info('Dispatching OpenRouter request', {
       requestId: input.requestId ?? 'n/a',
       model: input.model,
-      timeoutMs
+      timeoutMs,
+      contextCachingEnabled: input.contextCachingEnabled,
+      contextCacheHintApplied: prompt.contextCacheHintApplied
     });
 
     // Start pricing lookup in parallel so cost logging is ready at stream completion.
@@ -206,10 +212,14 @@ export class OpenRouterClient {
 
       const promptUsdPerToken = parseUsdPerToken(modelCard.pricing?.prompt) ?? 0;
       const completionUsdPerToken = parseUsdPerToken(modelCard.pricing?.completion) ?? 0;
+      const inputCacheReadUsdPerToken = parseUsdPerToken(modelCard.pricing?.input_cache_read) ?? promptUsdPerToken;
+      const inputCacheWriteUsdPerToken = parseUsdPerToken(modelCard.pricing?.input_cache_write) ?? promptUsdPerToken;
 
       const pricing: TokenPricing = {
         promptUsdPerToken,
-        completionUsdPerToken
+        completionUsdPerToken,
+        inputCacheReadUsdPerToken,
+        inputCacheWriteUsdPerToken
       };
 
       this.pricingCache.set(model, pricing);
@@ -237,6 +247,8 @@ export class OpenRouterClient {
       promptTokens: usage.promptTokens ?? 'n/a',
       completionTokens: usage.completionTokens ?? 'n/a',
       totalTokens: usage.totalTokens ?? 'n/a',
+      cachedPromptTokens: usage.cachedPromptTokens ?? 'n/a',
+      cacheWritePromptTokens: usage.cacheWritePromptTokens ?? 'n/a',
       reportedCostUsd: usage.costUsd !== null ? toFixedUsd(usage.costUsd) : 'n/a'
     });
 

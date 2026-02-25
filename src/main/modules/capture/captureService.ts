@@ -4,8 +4,23 @@ import sharp from 'sharp';
 import { NormalizedRect } from '@main/utils/geometry';
 import { logger } from '@main/utils/logger';
 
+export interface CaptureOptions {
+  imageCompressionEnabled: boolean;
+  maxLongEdgePx?: number;
+}
+
+export interface CaptureResult {
+  buffer: Buffer;
+  mimeType: 'image/png';
+  width: number;
+  height: number;
+  compressed: boolean;
+}
+
+const DEFAULT_MAX_LONG_EDGE_PX = 1400;
+
 export class CaptureService {
-  async captureRegion(display: Display, region: NormalizedRect): Promise<Buffer> {
+  async captureRegion(display: Display, region: NormalizedRect, options: CaptureOptions): Promise<CaptureResult> {
     const displays = screen
       .getAllDisplays()
       .slice()
@@ -45,14 +60,58 @@ export class CaptureService {
       height
     });
 
-    return sharp(selectedShot)
-      .extract({
-        left,
-        top,
-        width,
-        height
-      })
-      .png()
+    const extracted = sharp(selectedShot).extract({
+      left,
+      top,
+      width,
+      height
+    });
+
+    const extractedMeta = await extracted.metadata();
+    const originalWidth = extractedMeta.width ?? width;
+    const originalHeight = extractedMeta.height ?? height;
+
+    let pipeline = extracted;
+    let compressed = false;
+
+    if (options.imageCompressionEnabled) {
+      const maxLongEdgePx = options.maxLongEdgePx ?? DEFAULT_MAX_LONG_EDGE_PX;
+      const longEdge = Math.max(originalWidth, originalHeight);
+
+      if (longEdge > maxLongEdgePx) {
+        compressed = true;
+        pipeline = pipeline.resize({
+          width: originalWidth >= originalHeight ? maxLongEdgePx : undefined,
+          height: originalHeight > originalWidth ? maxLongEdgePx : undefined,
+          fit: 'inside',
+          withoutEnlargement: true
+        });
+      }
+    }
+
+    const buffer = await pipeline
+      // Palette PNG significantly reduces upload size while preserving text readability.
+      .png({ compressionLevel: 9, palette: true })
       .toBuffer();
+
+    const finalMeta = await sharp(buffer).metadata();
+    const finalWidth = finalMeta.width ?? originalWidth;
+    const finalHeight = finalMeta.height ?? originalHeight;
+
+    logger.info('Capture prepared for inference', {
+      compressed,
+      originalWidth,
+      originalHeight,
+      finalWidth,
+      finalHeight
+    });
+
+    return {
+      buffer,
+      mimeType: 'image/png',
+      width: finalWidth,
+      height: finalHeight,
+      compressed
+    };
   }
 }

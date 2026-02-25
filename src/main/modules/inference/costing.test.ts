@@ -13,6 +13,8 @@ describe('normalizeUsage', () => {
       promptTokens: 120,
       completionTokens: 30,
       totalTokens: 150,
+      cachedPromptTokens: null,
+      cacheWritePromptTokens: null,
       costUsd: null
     });
   });
@@ -27,6 +29,8 @@ describe('normalizeUsage', () => {
       promptTokens: 200,
       completionTokens: 20,
       totalTokens: null,
+      cachedPromptTokens: null,
+      cacheWritePromptTokens: null,
       costUsd: null
     });
   });
@@ -42,7 +46,29 @@ describe('normalizeUsage', () => {
       promptTokens: 10,
       completionTokens: 5,
       totalTokens: null,
+      cachedPromptTokens: null,
+      cacheWritePromptTokens: null,
       costUsd: 0.000025
+    });
+  });
+
+  it('captures prompt cache detail tokens', () => {
+    const usage = normalizeUsage({
+      prompt_tokens: 2000,
+      completion_tokens: 20,
+      prompt_tokens_details: {
+        cached_tokens: 1500,
+        cache_write_tokens: 300
+      }
+    });
+
+    expect(usage).toEqual({
+      promptTokens: 2000,
+      completionTokens: 20,
+      totalTokens: null,
+      cachedPromptTokens: 1500,
+      cacheWritePromptTokens: 300,
+      costUsd: null
     });
   });
 
@@ -57,17 +83,46 @@ describe('estimateTokenCostUsd', () => {
       {
         promptTokens: 1000,
         completionTokens: 200,
-        totalTokens: 1200
+        totalTokens: 1200,
+        cachedPromptTokens: 0,
+        cacheWritePromptTokens: 0,
+        costUsd: null
       },
       {
         promptUsdPerToken: 0.0000005,
-        completionUsdPerToken: 0.000003
+        completionUsdPerToken: 0.000003,
+        inputCacheReadUsdPerToken: 0.00000005,
+        inputCacheWriteUsdPerToken: 0.00000008333333333333334
       }
     );
 
     expect(estimate.promptUsd).toBeCloseTo(0.0005, 10);
     expect(estimate.completionUsd).toBeCloseTo(0.0006, 10);
     expect(estimate.totalUsd).toBeCloseTo(0.0011, 10);
+  });
+
+  it('applies cache read/write pricing when usage includes cached tokens', () => {
+    const estimate = estimateTokenCostUsd(
+      {
+        promptTokens: 2000,
+        completionTokens: 10,
+        totalTokens: 2010,
+        cachedPromptTokens: 1500,
+        cacheWritePromptTokens: 300,
+        costUsd: null
+      },
+      {
+        promptUsdPerToken: 0.0000005,
+        completionUsdPerToken: 0.000003,
+        inputCacheReadUsdPerToken: 0.00000005,
+        inputCacheWriteUsdPerToken: 0.00000008333333333333334
+      }
+    );
+
+    // Prompt: 200 uncached + 1500 read-cached + 300 write-cached.
+    expect(estimate.promptUsd).toBeCloseTo(0.0002, 10);
+    expect(estimate.completionUsd).toBeCloseTo(0.00003, 10);
+    expect(estimate.totalUsd).toBeCloseTo(0.00023, 10);
   });
 });
 

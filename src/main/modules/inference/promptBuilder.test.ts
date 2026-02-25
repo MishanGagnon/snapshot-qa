@@ -21,12 +21,32 @@ describe('buildPrompt', () => {
       corpus: 'Term: diegetic means sound from story world.',
       customInfo: 'Use internal definitions first.',
       model: 'google/gemini-3-flash-preview',
-      imageBase64: 'ZmFrZS1pbWFnZQ=='
+      imageBase64: 'ZmFrZS1pbWFnZQ==',
+      imageMimeType: 'image/png',
+      contextCachingEnabled: true
     });
 
     expect(result.body.model).toBe('google/gemini-3-flash-preview');
     const messages = result.body.messages as Array<{ role: string; content: unknown }>;
     expect(messages[0].role).toBe('system');
     expect(String(messages[0].content)).toContain('unknown');
+    expect(result.contextCacheHintApplied).toBe(true);
+  });
+
+  it('omits cache control when context caching is disabled', () => {
+    const result = buildPrompt({
+      corpus: 'Company term glossary',
+      customInfo: '',
+      model: 'google/gemini-3-flash-preview',
+      imageBase64: 'ZmFrZS1pbWFnZQ==',
+      imageMimeType: 'image/png',
+      contextCachingEnabled: false
+    });
+
+    const messages = result.body.messages as Array<{ role: string; content: unknown }>;
+    const userContent = messages[1].content as Array<Record<string, unknown>>;
+    const corpusPart = userContent[1];
+    expect(corpusPart.cache_control).toBeUndefined();
+    expect(result.contextCacheHintApplied).toBe(false);
   });
 });

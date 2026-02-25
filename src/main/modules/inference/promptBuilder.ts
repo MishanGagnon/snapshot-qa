@@ -5,11 +5,14 @@ export interface PromptBuildInput {
   customInfo: string;
   model: string;
   imageBase64: string;
+  imageMimeType: string;
+  contextCachingEnabled: boolean;
 }
 
 export interface PromptBuildResult {
   body: Record<string, unknown>;
   corpusTruncated: boolean;
+  contextCacheHintApplied: boolean;
 }
 
 export function buildPrompt(input: PromptBuildInput): PromptBuildResult {
@@ -24,21 +27,33 @@ export function buildPrompt(input: PromptBuildInput): PromptBuildResult {
     'Match language and terminology style from the context corpus.'
   ].join(' ');
 
-  const contextText = [
-    'Context corpus:',
-    corpus || '[empty]',
-    '',
-    'Custom info:',
-    input.customInfo || '[none]'
-  ].join('\n');
+  const corpusText = corpus || '[empty]';
+  const customInfoText = input.customInfo || '[none]';
+  const contextCacheHintApplied = input.contextCachingEnabled && Boolean(corpus);
+
+  const corpusPart: Record<string, unknown> = {
+    type: 'text',
+    text: corpusText
+  };
+
+  if (contextCacheHintApplied) {
+    // OpenRouter forwards cache hints when provider supports prompt caching.
+    corpusPart.cache_control = {
+      type: 'ephemeral'
+    };
+  }
 
   return {
     corpusTruncated: truncated,
+    contextCacheHintApplied,
     body: {
       model: input.model,
       temperature: 0.0,
       max_tokens: 32,
       stream: true,
+      stream_options: {
+        include_usage: true
+      },
       messages: [
         {
           role: 'system',
@@ -49,12 +64,17 @@ export function buildPrompt(input: PromptBuildInput): PromptBuildResult {
           content: [
             {
               type: 'text',
-              text: contextText
+              text: 'Context corpus:'
+            },
+            corpusPart,
+            {
+              type: 'text',
+              text: `Custom info:\n${customInfoText}`
             },
             {
               type: 'image_url',
               image_url: {
-                url: `data:image/png;base64,${input.imageBase64}`
+                url: `data:${input.imageMimeType};base64,${input.imageBase64}`
               }
             }
           ]

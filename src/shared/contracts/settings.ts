@@ -6,6 +6,8 @@ export interface GeneralSettings {
   defaultModel: string;
   showSelectionBox: boolean;
   launchAtLogin: boolean;
+  imageCompressionEnabled: boolean;
+  contextCachingEnabled: boolean;
 }
 
 export interface AppSettings {
@@ -18,7 +20,9 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   customInfo: '',
   defaultModel: 'google/gemini-3-flash-preview',
   showSelectionBox: true,
-  launchAtLogin: false
+  launchAtLogin: false,
+  imageCompressionEnabled: true,
+  contextCachingEnabled: true
 };
 
 export const DEFAULT_HOTKEY_MAP: HotkeyMap = HOTKEY_ACTION_DEFINITIONS.reduce(

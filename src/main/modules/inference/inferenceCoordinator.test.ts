@@ -6,10 +6,19 @@ import { OpenRouterClient } from './openRouterClient';
 class FakeClient {
   constructor(private readonly answer: string) {}
 
-  async runVisionQuery(): Promise<{ text: string; corpusTruncated: boolean }> {
+  async runVisionQuery(): Promise<{
+    text: string;
+    corpusTruncated: boolean;
+    usage: null;
+    costEstimateUsd: null;
+    reportedCostUsd: null;
+  }> {
     return {
       text: this.answer,
-      corpusTruncated: false
+      corpusTruncated: false,
+      usage: null,
+      costEstimateUsd: null,
+      reportedCostUsd: null
     };
   }
 }
@@ -20,13 +29,24 @@ describe('InferenceCoordinator', () => {
     const client = new FakeClient('diegetic') as unknown as OpenRouterClient;
     const coordinator = new InferenceCoordinator(client, store, async () => 'abc');
 
-    await coordinator.runCaptureQuery(Buffer.from('fake'), {
+    await coordinator.runCaptureQuery(
+      {
+        buffer: Buffer.from('fake'),
+        mimeType: 'image/png',
+        width: 100,
+        height: 100,
+        compressed: false
+      },
+      {
       corpus: '   ',
       customInfo: '',
       defaultModel: 'google/gemini-3-flash-preview',
       showSelectionBox: true,
-      launchAtLogin: false
-    });
+      launchAtLogin: false,
+      imageCompressionEnabled: true,
+      contextCachingEnabled: true
+    }
+    );
 
     const latest = coordinator.getLatestState();
     expect(latest.status).toBe('error');
@@ -38,13 +58,24 @@ describe('InferenceCoordinator', () => {
     const client = new FakeClient('diegetic') as unknown as OpenRouterClient;
     const coordinator = new InferenceCoordinator(client, store, async () => 'abc');
 
-    await coordinator.runCaptureQuery(Buffer.from('fake'), {
+    await coordinator.runCaptureQuery(
+      {
+        buffer: Buffer.from('fake'),
+        mimeType: 'image/png',
+        width: 100,
+        height: 100,
+        compressed: false
+      },
+      {
       corpus: 'term definitions',
       customInfo: '',
       defaultModel: 'google/gemini-3-flash-preview',
       showSelectionBox: true,
-      launchAtLogin: false
-    });
+      launchAtLogin: false,
+      imageCompressionEnabled: true,
+      contextCachingEnabled: true
+    }
+    );
 
     const writer = vi.fn();
     coordinator.copyLatestForDisplay(writer);

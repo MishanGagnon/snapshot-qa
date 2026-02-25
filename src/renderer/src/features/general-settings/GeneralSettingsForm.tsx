@@ -78,6 +78,24 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
           />
           <span>Launch at login</span>
         </label>
+
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={draft.imageCompressionEnabled}
+            onChange={(event) => setDraft((prev) => ({ ...prev, imageCompressionEnabled: event.target.checked }))}
+          />
+          <span>Compress large captures before upload (lower cost, slightly less detail)</span>
+        </label>
+
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={draft.contextCachingEnabled}
+            onChange={(event) => setDraft((prev) => ({ ...prev, contextCachingEnabled: event.target.checked }))}
+          />
+          <span>Enable context prompt caching for repeated corpus (provider support required)</span>
+        </label>
       </div>
 
       <div className="status-strip">

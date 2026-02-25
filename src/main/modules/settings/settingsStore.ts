@@ -28,7 +28,9 @@ const settingsSchema = z.object({
       customInfo: z.string(),
       defaultModel: z.string(),
       showSelectionBox: z.boolean(),
-      launchAtLogin: z.boolean()
+      launchAtLogin: z.boolean(),
+      imageCompressionEnabled: z.boolean(),
+      contextCachingEnabled: z.boolean()
     })
     .partial(),
   hotkeys: z.record(hotkeySchema).optional()
@@ -156,6 +158,14 @@ export class SettingsStore {
 
     if (typeof input.launchAtLogin === 'boolean') {
       patch.launchAtLogin = input.launchAtLogin;
+    }
+
+    if (typeof input.imageCompressionEnabled === 'boolean') {
+      patch.imageCompressionEnabled = input.imageCompressionEnabled;
+    }
+
+    if (typeof input.contextCachingEnabled === 'boolean') {
+      patch.contextCachingEnabled = input.contextCachingEnabled;
     }
 
     return patch;

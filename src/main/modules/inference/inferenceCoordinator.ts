@@ -3,6 +3,7 @@ import { InferenceError } from './errors';
 import { OpenRouterClient } from './openRouterClient';
 import { LatestResponseStore } from '@main/modules/runtime/latestResponseStore';
 import { logger } from '@main/utils/logger';
+import { CaptureResult } from '@main/modules/capture/captureService';
 
 export class InferenceCoordinator {
   private sequence = 0;
@@ -18,7 +19,7 @@ export class InferenceCoordinator {
     return this.latestStore.get();
   }
 
-  async runCaptureQuery(imageBuffer: Buffer, settings: GeneralSettings): Promise<void> {
+  async runCaptureQuery(capture: CaptureResult, settings: GeneralSettings): Promise<void> {
     const responseId = ++this.sequence;
     this.latestStore.setPending(responseId);
 
@@ -57,7 +58,9 @@ export class InferenceCoordinator {
         model: settings.defaultModel,
         corpus: settings.corpus,
         customInfo: settings.customInfo,
-        imageBuffer,
+        imageBuffer: capture.buffer,
+        imageMimeType: capture.mimeType,
+        contextCachingEnabled: settings.contextCachingEnabled,
         timeoutMs: 20_000,
         signal: controller.signal
       });
