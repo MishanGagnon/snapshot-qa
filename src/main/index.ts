@@ -1,0 +1,320 @@
+import { app, BrowserWindow, Menu, Tray, clipboard, nativeImage, screen } from 'electron';
+import { join } from 'node:path';
+import {
+  HOTKEY_ACTION_DEFINITIONS,
+  HotkeyActionId,
+  HotkeyMap,
+  LatestResponse
+} from '@shared/contracts';
+import { CaptureService } from '@main/modules/capture/captureService';
+import { HotkeyManager } from '@main/modules/hotkeys/hotkeyManager';
+import { UiohookHotkeyService } from '@main/modules/hotkeys/uiohookHotkeyService';
+import { InferenceCoordinator } from '@main/modules/inference/inferenceCoordinator';
+import { OpenRouterClient } from '@main/modules/inference/openRouterClient';
+import { registerIpcHandlers } from '@main/modules/ipc/registerIpcHandlers';
+import { IndicatorOverlay } from '@main/modules/overlay/indicatorOverlay';
+import { SelectionOverlay } from '@main/modules/overlay/selectionOverlay';
+import { PermissionService } from '@main/modules/permissions/permissionService';
+import { LatestResponseStore } from '@main/modules/runtime/latestResponseStore';
+import { KeyStore } from '@main/modules/security/keyStore';
+import { SettingsStore } from '@main/modules/settings/settingsStore';
+import { clampRectToBounds, normalizeRect, Point, toRelativeRect } from '@main/utils/geometry';
+import { logger } from '@main/utils/logger';
+
+let tray: Tray | null = null;
+let settingsWindow: BrowserWindow | null = null;
+
+let captureSession: {
+  startPoint: Point;
+  displayBounds: Electron.Rectangle;
+  display: Electron.Display;
+  poll?: NodeJS.Timeout;
+} | null = null;
+
+let indicatorPoll: NodeJS.Timeout | null = null;
+
+const keyStore = new KeyStore();
+const settingsStore = new SettingsStore();
+const permissionService = new PermissionService();
+const latestResponseStore = new LatestResponseStore();
+const inferenceCoordinator = new InferenceCoordinator(
+  new OpenRouterClient(),
+  latestResponseStore,
+  () => keyStore.getOpenRouterKey()
+);
+const captureService = new CaptureService();
+const selectionOverlay = new SelectionOverlay();
+const indicatorOverlay = new IndicatorOverlay();
+
+const hotkeyManager = new HotkeyManager(
+  new UiohookHotkeyService(),
+  settingsStore.get().hotkeys,
+  handleHotkeyStart,
+  handleHotkeyEnd
+);
+
+function createSettingsWindow(): BrowserWindow {
+  const win = new BrowserWindow({
+    width: 760,
+    height: 620,
+    show: false,
+    title: 'Discreet QA Settings',
+    backgroundColor: '#0e1318',
+    titleBarStyle: 'hiddenInset',
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+  if (rendererUrl) {
+    void win.loadURL(rendererUrl);
+  } else {
+    void win.loadFile(join(__dirname, '../renderer/index.html'));
+  }
+
+  win.on('close', (event) => {
+    event.preventDefault();
+    win.hide();
+  });
+
+  return win;
+}
+
+function createTray(): Tray {
+  const icon = nativeImage
+    .createFromDataURL(
+      `data:image/svg+xml;base64,${Buffer.from(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="#e7ecef" /></svg>`
+      ).toString('base64')}`
+    )
+    .resize({ width: 16, height: 16 });
+
+  const nextTray = new Tray(icon);
+
+  nextTray.setToolTip('Discreet QA');
+  nextTray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'Open Settings',
+        click: () => settingsWindow?.show()
+      },
+      {
+        type: 'separator'
+      },
+      {
+        label: 'Quit',
+        click: () => {
+          app.removeAllListeners('window-all-closed');
+          app.quit();
+        }
+      }
+    ])
+  );
+
+  nextTray.on('click', () => {
+    if (!settingsWindow) {
+      return;
+    }
+
+    if (settingsWindow.isVisible()) {
+      settingsWindow.hide();
+      return;
+    }
+
+    settingsWindow.show();
+  });
+
+  return nextTray;
+}
+
+function handleHotkeyStart(actionId: HotkeyActionId): void {
+  if (actionId === 'capture_region') {
+    startCapture();
+    return;
+  }
+
+  if (actionId === 'show_latest_response') {
+    startIndicatorPreview();
+  }
+}
+
+function handleHotkeyEnd(actionId: HotkeyActionId): void {
+  if (actionId === 'capture_region') {
+    void finishCapture();
+    return;
+  }
+
+  if (actionId === 'show_latest_response') {
+    stopIndicatorPreview();
+  }
+}
+
+function startCapture(): void {
+  if (captureSession) {
+    return;
+  }
+
+  const startPoint = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(startPoint);
+  const { showSelectionBox } = settingsStore.get().general;
+
+  captureSession = {
+    startPoint,
+    display,
+    displayBounds: display.bounds
+  };
+
+  if (!showSelectionBox) {
+    return;
+  }
+
+  void selectionOverlay.show(display.bounds);
+  captureSession.poll = setInterval(() => {
+    if (!captureSession) {
+      return;
+    }
+
+    const current = screen.getCursorScreenPoint();
+    const normalized = normalizeRect(captureSession.startPoint, current);
+    const clamped = clampRectToBounds(normalized, captureSession.displayBounds);
+    selectionOverlay.updateRect(clamped ? toRelativeRect(clamped, captureSession.displayBounds) : null);
+  }, 16);
+}
+
+async function finishCapture(): Promise<void> {
+  const session = captureSession;
+  captureSession = null;
+
+  if (!session) {
+    return;
+  }
+
+  if (session.poll) {
+    clearInterval(session.poll);
+  }
+  selectionOverlay.hide();
+
+  const endPoint = screen.getCursorScreenPoint();
+  const normalized = normalizeRect(session.startPoint, endPoint);
+  const clamped = clampRectToBounds(normalized, session.displayBounds);
+
+  if (!clamped) {
+    logger.warn('Capture ignored due to tiny region.');
+    return;
+  }
+
+  try {
+    const image = await captureService.captureRegion(session.display, clamped);
+    await inferenceCoordinator.runCaptureQuery(image, settingsStore.get().general);
+  } catch (error) {
+    logger.error('Failed to capture region or run inference.', {
+      reason: error instanceof Error ? error.message : 'unknown'
+    });
+  }
+}
+
+function startIndicatorPreview(): void {
+  if (indicatorPoll) {
+    return;
+  }
+
+  const tick = () => {
+    const point = screen.getCursorScreenPoint();
+    const latest = inferenceCoordinator.getLatestState();
+    void renderIndicatorAt(point, latest);
+  };
+
+  tick();
+  indicatorPoll = setInterval(tick, 33);
+}
+
+function stopIndicatorPreview(): void {
+  if (indicatorPoll) {
+    clearInterval(indicatorPoll);
+    indicatorPoll = null;
+  }
+
+  indicatorOverlay.hide();
+}
+
+async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<void> {
+  if (latest.status === 'idle') {
+    indicatorOverlay.hide();
+    return;
+  }
+
+  if (latest.status === 'pending') {
+    await indicatorOverlay.showAt(point, {
+      state: 'pending'
+    });
+    return;
+  }
+
+  if (latest.status === 'complete') {
+    inferenceCoordinator.copyLatestForDisplay((text) => clipboard.writeText(text));
+    await indicatorOverlay.showAt(point, {
+      state: 'complete',
+      text: latest.text
+    });
+    return;
+  }
+
+  if (latest.status === 'error') {
+    inferenceCoordinator.copyLatestForDisplay((text) => clipboard.writeText(text));
+    await indicatorOverlay.showAt(point, {
+      state: 'error',
+      text: latest.text
+    });
+  }
+}
+
+function applyLaunchAtLoginSetting(enabled: boolean): void {
+  app.setLoginItemSettings({
+    openAtLogin: enabled
+  });
+}
+
+app.whenReady().then(() => {
+  if (process.platform === 'darwin') {
+    app.dock.hide();
+  }
+
+  settingsWindow = createSettingsWindow();
+  tray = createTray();
+
+  applyLaunchAtLoginSetting(settingsStore.get().general.launchAtLogin);
+
+  hotkeyManager.start();
+
+  registerIpcHandlers({
+    settingsStore,
+    keyStore,
+    hotkeyManager,
+    inferenceCoordinator,
+    permissionService
+  });
+
+  logger.info('Application initialized', {
+    hotkeys: HOTKEY_ACTION_DEFINITIONS.map((action) => action.id).join(', ')
+  });
+});
+
+app.on('activate', () => {
+  settingsWindow?.show();
+});
+
+app.on('window-all-closed', (event) => {
+  event.preventDefault();
+});
+
+app.on('before-quit', () => {
+  hotkeyManager.stop();
+  selectionOverlay.destroy();
+  indicatorOverlay.destroy();
+  tray?.destroy();
+  tray = null;
+});
