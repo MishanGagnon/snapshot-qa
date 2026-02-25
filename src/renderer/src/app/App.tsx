@@ -15,7 +15,6 @@ import { getDesktopApi } from '@renderer/lib/desktopApi';
 
 export function App(): JSX.Element {
   const api = useMemo(() => getDesktopApi(), []);
-
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [hotkeys, setHotkeys] = useState<HotkeyMap | null>(null);
   const [keyStatus, setKeyStatus] = useState<KeyStatusResponse | null>(null);
@@ -24,6 +23,10 @@ export function App(): JSX.Element {
   const [feedback, setFeedback] = useState<string>('');
 
   useEffect(() => {
+    if (!api) {
+      return;
+    }
+
     void (async () => {
       const [loadedSettings, loadedHotkeys, loadedKeyStatus, loadedPermissions] = await Promise.all([
         api.settings.get(),
@@ -38,6 +41,19 @@ export function App(): JSX.Element {
       setPermissions(loadedPermissions);
     })();
   }, [api]);
+
+  if (!api) {
+    return (
+      <main className="app-shell">
+        <section className="panel">
+          <h2>Renderer Bridge Not Available</h2>
+          <p className="helper-text">
+            The preload bridge failed to load. Restart the app and check main-process logs.
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   if (!settings || !hotkeys || !keyStatus) {
     return <main className="app-shell">Loading settings...</main>;

@@ -61,7 +61,7 @@ function createSettingsWindow(): BrowserWindow {
     backgroundColor: '#0e1318',
     titleBarStyle: 'hiddenInset',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false
@@ -318,9 +318,19 @@ async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<
 }
 
 function applyLaunchAtLoginSetting(enabled: boolean): void {
-  app.setLoginItemSettings({
-    openAtLogin: enabled
-  });
+  if (!app.isPackaged) {
+    return;
+  }
+
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: enabled
+    });
+  } catch (error) {
+    logger.warn('Failed to update launch-at-login setting.', {
+      reason: error instanceof Error ? error.message : 'unknown'
+    });
+  }
 }
 
 app.whenReady().then(() => {

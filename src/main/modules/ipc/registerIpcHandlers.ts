@@ -27,9 +27,15 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle(IPC_CHANNELS.settingsUpdate, async (_event, generalPatch: Partial<GeneralSettings>) => {
     const updated = deps.settingsStore.updateGeneral(generalPatch);
-    app.setLoginItemSettings({
-      openAtLogin: updated.general.launchAtLogin
-    });
+    if (app.isPackaged) {
+      try {
+        app.setLoginItemSettings({
+          openAtLogin: updated.general.launchAtLogin
+        });
+      } catch {
+        // Ignore launch-at-login update errors; app remains usable in dev and restricted environments.
+      }
+    }
     return updated;
   });
 
