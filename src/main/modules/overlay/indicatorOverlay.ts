@@ -24,22 +24,24 @@ const indicatorHtml = encodeURIComponent(`
         justify-content: center;
       }
       #bubble {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+        display: block;
+        width: 100%;
+        height: 100%;
         min-width: 10px;
         min-height: 10px;
-        max-width: 340px;
         border-radius: 6px;
-        padding: 2px 7px;
+        padding: 4px 8px;
         font-family: "Avenir Next", "IBM Plex Sans", "Helvetica Neue", sans-serif;
         font-size: 12px;
+        line-height: 1.3;
         letter-spacing: 0.01em;
         color: #eef2f4;
         background: rgba(25, 30, 36, 0.88);
         border: 1px solid rgba(238, 242, 244, 0.2);
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
-        white-space: nowrap;
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: anywhere;
       }
       #bubble.pending {
         width: 10px;
@@ -138,6 +140,15 @@ export class IndicatorOverlay {
   }
 }
 
+const COMPLETE_BUBBLE_MIN_WIDTH = 80;
+const COMPLETE_BUBBLE_MAX_WIDTH = 420;
+const COMPLETE_BUBBLE_MIN_HEIGHT = 28;
+const COMPLETE_BUBBLE_MAX_LINES = 6;
+const COMPLETE_BUBBLE_HORIZONTAL_PADDING = 16;
+const COMPLETE_BUBBLE_VERTICAL_PADDING = 8;
+const COMPLETE_BUBBLE_LINE_HEIGHT = 16;
+const AVERAGE_GLYPH_WIDTH = 7;
+
 function getBounds(payload: { state: IndicatorState; text?: string }): { width: number; height: number } {
   if (payload.state === 'pending' || payload.state === 'error') {
     return {
@@ -146,9 +157,27 @@ function getBounds(payload: { state: IndicatorState; text?: string }): { width: 
     };
   }
 
-  const textLength = payload.text?.length ?? 1;
+  const text = (payload.text ?? '').trim() || 'unknown';
+  const effectiveTextLength = text.length;
+  const estimatedTextWidth = Math.max(1, effectiveTextLength * AVERAGE_GLYPH_WIDTH);
+
+  const width = clamp(
+    estimatedTextWidth + COMPLETE_BUBBLE_HORIZONTAL_PADDING,
+    COMPLETE_BUBBLE_MIN_WIDTH,
+    COMPLETE_BUBBLE_MAX_WIDTH
+  );
+
+  const usableTextWidth = Math.max(1, width - COMPLETE_BUBBLE_HORIZONTAL_PADDING);
+  const linesByWidth = Math.ceil(estimatedTextWidth / usableTextWidth);
+  const linesByNewlines = text.split('\n').length;
+  const lineCount = clamp(Math.max(linesByWidth, linesByNewlines), 1, COMPLETE_BUBBLE_MAX_LINES);
+
   return {
-    width: Math.min(340, Math.max(44, textLength * 8 + 24)),
-    height: 28
+    width,
+    height: COMPLETE_BUBBLE_MIN_HEIGHT + (lineCount - 1) * COMPLETE_BUBBLE_LINE_HEIGHT + COMPLETE_BUBBLE_VERTICAL_PADDING
   };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
