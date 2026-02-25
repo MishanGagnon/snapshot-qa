@@ -33,6 +33,10 @@ npm install
 npm run dev
 ```
 
+`npm run dev` uses full hot reload:
+- Renderer: Vite HMR
+- Main/Preload: automatic rebuild + Electron restart (`--watch`)
+
 ## Build
 
 ```bash

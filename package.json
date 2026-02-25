@@ -5,7 +5,8 @@
   "main": "out/main/index.js",
   "type": "module",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "electron-vite dev --watch",
+    "dev:renderer": "electron-vite dev --rendererOnly",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "test": "vitest run",
