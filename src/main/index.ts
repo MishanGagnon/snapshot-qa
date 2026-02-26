@@ -1,7 +1,8 @@
 import { app, BrowserWindow, Menu, Tray, clipboard, nativeImage, screen } from 'electron';
 import { join } from 'node:path';
-import { HOTKEY_ACTION_DEFINITIONS, HotkeyActionId, LatestResponse } from '@shared/contracts';
+import { HOTKEY_ACTION_DEFINITIONS, HotkeyActionId, LatestResponse, SnippetHotkeyActionId, TextSnippetId } from '@shared/contracts';
 import { CaptureService } from '@main/modules/capture/captureService';
+import { CursorPositionService } from '@main/modules/cursor/cursorPositionService';
 import { HotkeyManager } from '@main/modules/hotkeys/hotkeyManager';
 import { UiohookHotkeyService } from '@main/modules/hotkeys/uiohookHotkeyService';
 import { InferenceCoordinator } from '@main/modules/inference/inferenceCoordinator';
@@ -9,11 +10,11 @@ import { OpenRouterClient } from '@main/modules/inference/openRouterClient';
 import { registerIpcHandlers } from '@main/modules/ipc/registerIpcHandlers';
 import { IndicatorOverlay } from '@main/modules/overlay/indicatorOverlay';
 import { SelectionOverlay } from '@main/modules/overlay/selectionOverlay';
-import { CursorPositionService } from '@main/modules/cursor/cursorPositionService';
 import { PermissionService } from '@main/modules/permissions/permissionService';
 import { LatestResponseStore } from '@main/modules/runtime/latestResponseStore';
 import { KeyStore } from '@main/modules/security/keyStore';
 import { SettingsStore } from '@main/modules/settings/settingsStore';
+import { TypedTextService } from '@main/modules/text-input/typedTextService';
 import { clampRectToBounds, NormalizedRect, normalizeRect, Point, toRelativeRect } from '@main/utils/geometry';
 import { logger } from '@main/utils/logger';
 
@@ -27,6 +28,7 @@ let permissionService: PermissionService | null = null;
 let inferenceCoordinator: InferenceCoordinator | null = null;
 let captureService: CaptureService | null = null;
 let hotkeyManager: HotkeyManager | null = null;
+let typedTextService: TypedTextService | null = null;
 
 const selectionOverlay = new SelectionOverlay();
 const indicatorOverlay = new IndicatorOverlay();
@@ -42,6 +44,13 @@ let captureSession: {
 } | null = null;
 
 let indicatorPoll: NodeJS.Timeout | null = null;
+
+const SNIPPET_ACTION_TO_ID: Record<SnippetHotkeyActionId, TextSnippetId> = {
+  type_snippet_1: 'snippet_1',
+  type_snippet_2: 'snippet_2',
+  type_snippet_3: 'snippet_3'
+};
+const TYPED_TEXT_START_DELAY_MS = 45;
 
 function createSettingsWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -165,6 +174,16 @@ function handleHotkeyEnd(actionId: HotkeyActionId): void {
 
   if (actionId === 'show_latest_response') {
     stopIndicatorPreview();
+    return;
+  }
+
+  if (actionId === 'type_latest_response') {
+    void typeLatestResponse();
+    return;
+  }
+
+  if (isSnippetAction(actionId)) {
+    void typeSnippet(actionId);
   }
 }
 
@@ -284,6 +303,73 @@ function stopIndicatorPreview(): void {
   indicatorOverlay.hide();
 }
 
+async function typeLatestResponse(): Promise<void> {
+  if (!typedTextService) {
+    return;
+  }
+
+  if (!permissionService?.getStatus().accessibilityTrusted) {
+    logger.warn('Typing latest response blocked: accessibility permission not granted.');
+    return;
+  }
+
+  const coordinator = getInferenceCoordinator();
+  if (!coordinator) {
+    return;
+  }
+
+  const latest = coordinator.getLatestState();
+  if (latest.status !== 'complete') {
+    logger.warn('Typing latest response skipped: no completed answer available.', {
+      status: latest.status
+    });
+    return;
+  }
+
+  await waitForTypingStartDelay();
+  await typedTextService.typeText(latest.text, 'latest_response');
+}
+
+async function typeSnippet(actionId: SnippetHotkeyActionId): Promise<void> {
+  if (!typedTextService) {
+    return;
+  }
+
+  if (!permissionService?.getStatus().accessibilityTrusted) {
+    logger.warn('Typing snippet blocked: accessibility permission not granted.', {
+      actionId
+    });
+    return;
+  }
+
+  const store = getSettingsStore();
+  if (!store) {
+    return;
+  }
+
+  const snippetId = SNIPPET_ACTION_TO_ID[actionId];
+  const text = store.get().general[snippetId];
+
+  if (!text.trim()) {
+    logger.warn('Typing snippet skipped: snippet is empty.', {
+      actionId,
+      snippetId
+    });
+    return;
+  }
+
+  await waitForTypingStartDelay();
+  await typedTextService.typeText(text, snippetId);
+}
+
+function isSnippetAction(actionId: HotkeyActionId): actionId is SnippetHotkeyActionId {
+  return actionId in SNIPPET_ACTION_TO_ID;
+}
+
+async function waitForTypingStartDelay(): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, TYPED_TEXT_START_DELAY_MS));
+}
+
 async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<void> {
   if (latest.status === 'idle') {
     indicatorOverlay.hide();
@@ -353,6 +439,7 @@ app.whenReady().then(() => {
   settingsStore = new SettingsStore();
   permissionService = new PermissionService();
   captureService = new CaptureService();
+  typedTextService = new TypedTextService();
 
   const latestResponseStore = new LatestResponseStore();
   inferenceCoordinator = new InferenceCoordinator(

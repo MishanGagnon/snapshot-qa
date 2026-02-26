@@ -11,12 +11,17 @@ import { TabId, TabNav } from '@renderer/components/TabNav';
 import { ApiKeysSettingsForm } from '@renderer/features/api-keys-settings/ApiKeysSettingsForm';
 import { GeneralSettingsForm } from '@renderer/features/general-settings/GeneralSettingsForm';
 import { HotkeySettingsForm } from '@renderer/features/hotkey-settings/HotkeySettingsForm';
+import { SnippetSettingsForm } from '@renderer/features/snippet-settings/SnippetSettingsForm';
 import { getDesktopApi } from '@renderer/lib/desktopApi';
 
 const TAB_COPY: Record<TabId, { title: string; subtitle: string }> = {
   general: {
     title: 'General',
     subtitle: 'Context and runtime behavior.'
+  },
+  snippets: {
+    title: 'Snippets',
+    subtitle: 'Store reusable text blocks typed as keyboard input.'
   },
   hotkeys: {
     title: 'Hotkeys',
@@ -86,6 +91,12 @@ export function App(): JSX.Element {
     setFeedback('Default model updated.');
   };
 
+  const saveSnippetPatch = async (patch: Partial<AppSettings['general']>) => {
+    const updated = await api.settings.update(patch);
+    setSettings(updated);
+    setFeedback('Snippet settings saved.');
+  };
+
   const saveHotkeys = async (map: HotkeyMap): Promise<HotkeyUpdateResponse> => {
     const result = await api.hotkeys.update(map);
     if (result.ok) {
@@ -119,6 +130,10 @@ export function App(): JSX.Element {
 
         {activeTab === 'general' ? (
           <GeneralSettingsForm initialValue={settings.general} permissions={permissions} onSave={saveGeneral} />
+        ) : null}
+
+        {activeTab === 'snippets' ? (
+          <SnippetSettingsForm initialValue={settings.general} hotkeys={hotkeys} onSave={saveSnippetPatch} />
         ) : null}
 
         {activeTab === 'hotkeys' ? (

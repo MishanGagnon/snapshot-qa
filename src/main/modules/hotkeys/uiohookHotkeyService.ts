@@ -1,5 +1,5 @@
 import { uIOhook } from 'uiohook-napi';
-import { HotkeyActionId, HotkeyMap } from '@shared/contracts';
+import { HOTKEY_ACTION_DEFINITIONS, HotkeyActionId, HotkeyMap } from '@shared/contracts';
 import { getModifierCodes, getPrimaryKeyCode } from './keycodes';
 import { HotkeyService } from './hotkeyService';
 
@@ -8,10 +8,7 @@ export class UiohookHotkeyService implements HotkeyService {
   private onStart: ((actionId: HotkeyActionId) => void) | null = null;
   private onEnd: ((actionId: HotkeyActionId) => void) | null = null;
   private pressed = new Set<number>();
-  private activeStates: Record<HotkeyActionId, boolean> = {
-    capture_region: false,
-    show_latest_response: false
-  };
+  private activeStates: Record<HotkeyActionId, boolean> = createInactiveStates();
   private running = false;
 
   start(bindings: HotkeyMap, onStart: (actionId: HotkeyActionId) => void, onEnd: (actionId: HotkeyActionId) => void): void {
@@ -27,10 +24,7 @@ export class UiohookHotkeyService implements HotkeyService {
 
   updateBindings(bindings: HotkeyMap): void {
     this.bindings = bindings;
-    this.activeStates = {
-      capture_region: false,
-      show_latest_response: false
-    };
+    this.activeStates = createInactiveStates();
   }
 
   stop(): void {
@@ -43,10 +37,7 @@ export class UiohookHotkeyService implements HotkeyService {
     uIOhook.stop();
     this.running = false;
     this.pressed.clear();
-    this.activeStates = {
-      capture_region: false,
-      show_latest_response: false
-    };
+    this.activeStates = createInactiveStates();
   }
 
   private readonly handleKeyDown = (event: { keycode: number }) => {
@@ -91,4 +82,14 @@ export class UiohookHotkeyService implements HotkeyService {
       return codes.some((code) => this.pressed.has(code));
     });
   }
+}
+
+function createInactiveStates(): Record<HotkeyActionId, boolean> {
+  return HOTKEY_ACTION_DEFINITIONS.reduce(
+    (acc, action) => {
+      acc[action.id] = false;
+      return acc;
+    },
+    {} as Record<HotkeyActionId, boolean>
+  );
 }

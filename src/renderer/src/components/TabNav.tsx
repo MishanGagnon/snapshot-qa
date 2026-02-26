@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type TabId = 'general' | 'hotkeys' | 'models';
+export type TabId = 'general' | 'snippets' | 'hotkeys' | 'models';
 
 interface TabNavProps {
   activeTab: TabId;
@@ -9,6 +9,7 @@ interface TabNavProps {
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'general', label: 'General' },
+  { id: 'snippets', label: 'Snippets' },
   { id: 'hotkeys', label: 'Hotkeys' },
   { id: 'models', label: 'Models' }
 ];

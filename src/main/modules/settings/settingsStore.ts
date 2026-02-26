@@ -16,7 +16,14 @@ import { logger } from '@main/utils/logger';
 
 const modifierSchema = z.enum(['cmd', 'shift', 'ctrl', 'alt']);
 const hotkeySchema = z.object({
-  actionId: z.enum(['capture_region', 'show_latest_response']),
+  actionId: z.enum([
+    'capture_region',
+    'show_latest_response',
+    'type_latest_response',
+    'type_snippet_1',
+    'type_snippet_2',
+    'type_snippet_3'
+  ]),
   key: z.enum(SUPPORTED_HOTKEY_KEYS as unknown as [string, ...string[]]),
   modifiers: z.array(modifierSchema)
 });
@@ -26,6 +33,9 @@ const settingsSchema = z.object({
     .object({
       corpus: z.string(),
       customInfo: z.string(),
+      snippet_1: z.string(),
+      snippet_2: z.string(),
+      snippet_3: z.string(),
       defaultModel: z.string(),
       showSelectionBox: z.boolean(),
       showResponseChrome: z.boolean(),
@@ -148,6 +158,18 @@ export class SettingsStore {
 
     if (typeof input.customInfo === 'string') {
       patch.customInfo = input.customInfo;
+    }
+
+    if (typeof input.snippet_1 === 'string') {
+      patch.snippet_1 = input.snippet_1;
+    }
+
+    if (typeof input.snippet_2 === 'string') {
+      patch.snippet_2 = input.snippet_2;
+    }
+
+    if (typeof input.snippet_3 === 'string') {
+      patch.snippet_3 = input.snippet_3;
     }
 
     if (typeof input.defaultModel === 'string') {
