@@ -43,19 +43,22 @@ const numberKeycodes: Record<string, number> = {
 };
 
 export const keyToCode: Record<string, number> = {
+  FN: 63,
   ...letterKeycodes,
-  ...numberKeycodes
+  ...numberKeycodes,
+  CAPSLOCK: 58
 };
 
 const modifierCodes: Record<HotkeyModifier, number[]> = {
   shift: [42, 54],
   ctrl: [29, 3613],
   alt: [56, 3640],
-  cmd: [3675, 3676]
+  cmd: [3675, 3676],
+  fn: []
 };
 
 export function bindingToCanonical(binding: HotkeyBinding): string {
-  const orderedModifiers: HotkeyModifier[] = ['cmd', 'shift', 'ctrl', 'alt'];
+  const orderedModifiers: HotkeyModifier[] = ['fn', 'cmd', 'shift', 'ctrl', 'alt'];
   const modifierPart = orderedModifiers.filter((modifier) => binding.modifiers.includes(modifier));
   return [...modifierPart, binding.key.toLowerCase()].join('+');
 }

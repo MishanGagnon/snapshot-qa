@@ -18,8 +18,9 @@ interface HotkeySettingsFormProps {
   onSave: (map: HotkeyMap) => Promise<HotkeyUpdateResponse>;
 }
 
-const modifierOrder: HotkeyModifier[] = ['cmd', 'shift', 'ctrl', 'alt'];
+const modifierOrder: HotkeyModifier[] = ['fn', 'cmd', 'shift', 'ctrl', 'alt'];
 const modifierGlyph: Record<HotkeyModifier, string> = {
+  fn: 'fn',
   cmd: '⌘',
   shift: '⇧',
   ctrl: '⌃',
@@ -64,16 +65,12 @@ export function HotkeySettingsForm({ initialValue, onValidate, onSave }: HotkeyS
       const key = parseSupportedKey(event);
       if (!key) {
         if (!isModifierOnlyKey(event.key)) {
-          setRecordingError('Use A-Z or 0-9 as the primary key.');
+          setRecordingError('Use Fn, A-Z, 0-9, or CapsLock as the primary key.');
         }
         return;
       }
 
-      const modifiers = parseModifiers(event);
-      if (modifiers.length === 0) {
-        setRecordingError('Include at least one modifier key (Cmd, Shift, Ctrl, or Alt).');
-        return;
-      }
+      const modifiers = parseModifiers(event).filter((modifier) => !(key === 'FN' && modifier === 'fn'));
 
       const nextBinding: HotkeyBinding = {
         actionId: recordingActionId,
@@ -237,6 +234,14 @@ function parseSupportedKey(event: KeyboardEvent): HotkeyKey | null {
 }
 
 function parseKeyFromCode(code: string): HotkeyKey | null {
+  if (code === 'Fn') {
+    return 'FN';
+  }
+
+  if (code === 'CapsLock') {
+    return 'CAPSLOCK';
+  }
+
   if (code.startsWith('Key') && code.length === 4) {
     const letter = code.slice(3).toUpperCase();
     if (SUPPORTED_HOTKEY_KEYS.includes(letter as HotkeyKey)) {
@@ -268,11 +273,14 @@ function parseModifiers(event: KeyboardEvent): HotkeyModifier[] {
   if (event.altKey) {
     modifiers.push('alt');
   }
+  if (event.getModifierState('Fn')) {
+    modifiers.push('fn');
+  }
   return modifierOrder.filter((modifier) => modifiers.includes(modifier));
 }
 
 function isModifierOnlyKey(key: string): boolean {
-  return key === 'Meta' || key === 'Shift' || key === 'Control' || key === 'Alt';
+  return key === 'Meta' || key === 'Shift' || key === 'Control' || key === 'Alt' || key === 'Fn';
 }
 
 function formatBinding(binding: HotkeyBinding): string {
@@ -281,7 +289,19 @@ function formatBinding(binding: HotkeyBinding): string {
     .map((modifier) => modifierGlyph[modifier])
     .join('');
 
-  return `${modifierPart}${binding.key}`;
+  return `${modifierPart}${formatKeyLabel(binding.key)}`;
+}
+
+function formatKeyLabel(key: HotkeyKey): string {
+  if (key === 'FN') {
+    return 'Fn';
+  }
+
+  if (key === 'CAPSLOCK') {
+    return 'CapsLock';
+  }
+
+  return key;
 }
 
 function signatureFromMap(map: HotkeyMap): string {

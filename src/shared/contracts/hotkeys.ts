@@ -5,9 +5,10 @@ export type HotkeyActionId =
   | 'type_latest_response'
   | SnippetHotkeyActionId;
 
-export type HotkeyModifier = 'cmd' | 'shift' | 'ctrl' | 'alt';
+export type HotkeyModifier = 'cmd' | 'shift' | 'ctrl' | 'alt' | 'fn';
 
 export type HotkeyKey =
+  | 'FN'
   | 'A'
   | 'B'
   | 'C'
@@ -34,6 +35,7 @@ export type HotkeyKey =
   | 'X'
   | 'Y'
   | 'Z'
+  | 'CAPSLOCK'
   | '0'
   | '1'
   | '2'
@@ -68,6 +70,7 @@ export interface HotkeyValidationResult {
 }
 
 export const SUPPORTED_HOTKEY_KEYS: readonly HotkeyKey[] = [
+  'FN',
   'A',
   'B',
   'C',
@@ -94,6 +97,7 @@ export const SUPPORTED_HOTKEY_KEYS: readonly HotkeyKey[] = [
   'X',
   'Y',
   'Z',
+  'CAPSLOCK',
   '0',
   '1',
   '2',
@@ -113,8 +117,8 @@ export const HOTKEY_ACTION_DEFINITIONS: HotkeyActionDefinition[] = [
     description: 'Hold shortcut to define screenshot region from key-down to key-up.',
     defaultBinding: {
       actionId: 'capture_region',
-      key: 'W',
-      modifiers: ['cmd', 'shift']
+      key: 'FN',
+      modifiers: []
     },
     handlerId: 'capture_region'
   },
@@ -124,8 +128,8 @@ export const HOTKEY_ACTION_DEFINITIONS: HotkeyActionDefinition[] = [
     description: 'Hold shortcut to show pending/result indicator near cursor.',
     defaultBinding: {
       actionId: 'show_latest_response',
-      key: 'E',
-      modifiers: ['cmd', 'shift']
+      key: 'FN',
+      modifiers: ['alt']
     },
     handlerId: 'show_latest_response'
   },

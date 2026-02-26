@@ -14,7 +14,7 @@ import {
 } from '@shared/contracts';
 import { logger } from '@main/utils/logger';
 
-const modifierSchema = z.enum(['cmd', 'shift', 'ctrl', 'alt']);
+const modifierSchema = z.enum(['cmd', 'shift', 'ctrl', 'alt', 'fn']);
 const hotkeySchema = z.object({
   actionId: z.enum([
     'capture_region',

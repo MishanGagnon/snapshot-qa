@@ -28,11 +28,6 @@ export function validateHotkeyMap(hotkeys: HotkeyMap): HotkeyValidationResult {
       return;
     }
 
-    if (binding.modifiers.length === 0) {
-      errors[actionId] = 'At least one modifier is required.';
-      return;
-    }
-
     if (!SUPPORTED_HOTKEY_KEYS.includes(binding.key)) {
       errors[actionId] = 'Unsupported key selected.';
       return;

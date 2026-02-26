@@ -22,7 +22,7 @@ describe('validateHotkeyMap', () => {
     expect(result.errors.show_latest_response).toContain('Conflicts');
   });
 
-  it('rejects bindings with no modifiers', () => {
+  it('accepts bindings with no modifiers', () => {
     const candidate = {
       ...DEFAULT_HOTKEY_MAP,
       capture_region: {
@@ -32,7 +32,68 @@ describe('validateHotkeyMap', () => {
     };
 
     const result = validateHotkeyMap(candidate);
-    expect(result.valid).toBe(false);
-    expect(result.errors.capture_region).toContain('modifier');
+    expect(result.valid).toBe(true);
+  });
+
+  it('accepts CapsLock as a hotkey key', () => {
+    const candidate = {
+      ...DEFAULT_HOTKEY_MAP,
+      capture_region: {
+        ...DEFAULT_HOTKEY_MAP.capture_region,
+        key: 'CAPSLOCK' as const,
+        modifiers: []
+      }
+    };
+
+    const result = validateHotkeyMap(candidate);
+    expect(result.valid).toBe(true);
+  });
+
+  it('accepts Fn as a modifier', () => {
+    const candidate = {
+      ...DEFAULT_HOTKEY_MAP,
+      capture_region: {
+        ...DEFAULT_HOTKEY_MAP.capture_region,
+        modifiers: ['fn'] as const
+      }
+    };
+
+    const result = validateHotkeyMap(candidate);
+    expect(result.valid).toBe(true);
+  });
+
+  it('accepts Fn as a standalone primary key', () => {
+    const candidate = {
+      ...DEFAULT_HOTKEY_MAP,
+      capture_region: {
+        ...DEFAULT_HOTKEY_MAP.capture_region,
+        key: 'FN' as const,
+        modifiers: []
+      }
+    };
+
+    const result = validateHotkeyMap(candidate);
+    expect(result.valid).toBe(true);
+  });
+
+  it('accepts Fn + Opt as a hotkey combo', () => {
+    const candidate = {
+      ...DEFAULT_HOTKEY_MAP,
+      show_latest_response: {
+        ...DEFAULT_HOTKEY_MAP.show_latest_response,
+        actionId: 'show_latest_response' as const,
+        key: 'E' as const,
+        modifiers: ['cmd', 'shift'] as const
+      },
+      type_latest_response: {
+        ...DEFAULT_HOTKEY_MAP.type_latest_response,
+        actionId: 'type_latest_response' as const,
+        key: 'FN' as const,
+        modifiers: ['alt'] as const
+      }
+    };
+
+    const result = validateHotkeyMap(candidate);
+    expect(result.valid).toBe(true);
   });
 });

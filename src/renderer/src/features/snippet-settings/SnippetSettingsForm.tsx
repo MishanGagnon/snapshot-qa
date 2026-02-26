@@ -18,8 +18,9 @@ interface SnippetSettingsFormProps {
 
 type SnippetDraft = Pick<GeneralSettings, TextSnippetId>;
 
-const modifierOrder: HotkeyModifier[] = ['cmd', 'shift', 'ctrl', 'alt'];
+const modifierOrder: HotkeyModifier[] = ['fn', 'cmd', 'shift', 'ctrl', 'alt'];
 const modifierGlyph: Record<HotkeyModifier, string> = {
+  fn: 'fn',
   cmd: '⌘',
   shift: '⇧',
   ctrl: '⌃',
@@ -119,5 +120,17 @@ function formatBinding(binding: HotkeyBinding): string {
     .map((modifier) => modifierGlyph[modifier])
     .join('');
 
-  return `${modifierPart}${binding.key}`;
+  return `${modifierPart}${formatKeyLabel(binding.key)}`;
+}
+
+function formatKeyLabel(key: HotkeyBinding['key']): string {
+  if (key === 'FN') {
+    return 'Fn';
+  }
+
+  if (key === 'CAPSLOCK') {
+    return 'CapsLock';
+  }
+
+  return key;
 }

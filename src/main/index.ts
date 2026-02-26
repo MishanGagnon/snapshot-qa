@@ -4,7 +4,7 @@ import { HOTKEY_ACTION_DEFINITIONS, HotkeyActionId, LatestResponse, SnippetHotke
 import { CaptureService } from '@main/modules/capture/captureService';
 import { CursorPositionService } from '@main/modules/cursor/cursorPositionService';
 import { HotkeyManager } from '@main/modules/hotkeys/hotkeyManager';
-import { UiohookHotkeyService } from '@main/modules/hotkeys/uiohookHotkeyService';
+import { KeyspyHotkeyService } from '@main/modules/hotkeys/keyspyHotkeyService';
 import { InferenceCoordinator } from '@main/modules/inference/inferenceCoordinator';
 import { OpenRouterClient } from '@main/modules/inference/openRouterClient';
 import { registerIpcHandlers } from '@main/modules/ipc/registerIpcHandlers';
@@ -506,7 +506,7 @@ app.whenReady().then(() => {
   );
 
   hotkeyManager = new HotkeyManager(
-    new UiohookHotkeyService(),
+    new KeyspyHotkeyService(),
     settingsStore.get().hotkeys,
     handleHotkeyStart,
     handleHotkeyEnd
