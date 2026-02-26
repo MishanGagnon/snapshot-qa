@@ -12,6 +12,11 @@ export interface NormalizedRect {
   height: number;
 }
 
+export interface Size {
+  width: number;
+  height: number;
+}
+
 export function normalizeRect(start: Point, end: Point): NormalizedRect {
   const x = Math.min(start.x, end.x);
   const y = Math.min(start.y, end.y);
@@ -48,4 +53,55 @@ export function toRelativeRect(rect: NormalizedRect, bounds: Rectangle): Normali
     width: rect.width,
     height: rect.height
   };
+}
+
+export function toDisplayPixelSize(bounds: Rectangle, scaleFactor: number): Size {
+  const safeScaleFactor = Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1;
+
+  return {
+    width: Math.max(1, Math.round(bounds.width * safeScaleFactor)),
+    height: Math.max(1, Math.round(bounds.height * safeScaleFactor))
+  };
+}
+
+export function toScaledRelativeRect(
+  rect: NormalizedRect,
+  bounds: Rectangle,
+  scaleFactor: number,
+  displaySizePx: Size
+): NormalizedRect {
+  const safeScaleFactor = Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1;
+  const fallbackDisplaySizePx = toDisplayPixelSize(bounds, safeScaleFactor);
+  const widthPx = Math.max(1, Math.round(displaySizePx.width || fallbackDisplaySizePx.width));
+  const heightPx = Math.max(1, Math.round(displaySizePx.height || fallbackDisplaySizePx.height));
+
+  const localLeftDip = rect.x - bounds.x;
+  const localTopDip = rect.y - bounds.y;
+  const localRightDip = localLeftDip + rect.width;
+  const localBottomDip = localTopDip + rect.height;
+
+  const leftPx = clamp(Math.round(localLeftDip * safeScaleFactor), 0, widthPx);
+  const topPx = clamp(Math.round(localTopDip * safeScaleFactor), 0, heightPx);
+  const rightPx = clamp(Math.round(localRightDip * safeScaleFactor), 0, widthPx);
+  const bottomPx = clamp(Math.round(localBottomDip * safeScaleFactor), 0, heightPx);
+
+  const pxToDipX = bounds.width / widthPx;
+  const pxToDipY = bounds.height / heightPx;
+
+  return {
+    x: leftPx * pxToDipX,
+    y: topPx * pxToDipY,
+    width: Math.max(0, (rightPx - leftPx) * pxToDipX),
+    height: Math.max(0, (bottomPx - topPx) * pxToDipY)
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (value < min) {
+    return min;
+  }
+  if (value > max) {
+    return max;
+  }
+  return value;
 }

@@ -38,6 +38,7 @@ const settingsSchema = z.object({
       snippet_3: z.string(),
       defaultModel: z.string(),
       showSelectionBox: z.boolean(),
+      showCursorDebugDot: z.boolean(),
       showResponseChrome: z.boolean(),
       ultraDiscreteMode: z.boolean(),
       launchAtLogin: z.boolean(),
@@ -178,6 +179,10 @@ export class SettingsStore {
 
     if (typeof input.showSelectionBox === 'boolean') {
       patch.showSelectionBox = input.showSelectionBox;
+    }
+
+    if (typeof input.showCursorDebugDot === 'boolean') {
+      patch.showCursorDebugDot = input.showCursorDebugDot;
     }
 
     if (typeof input.showResponseChrome === 'boolean') {

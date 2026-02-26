@@ -16,6 +16,7 @@ export interface GeneralSettings {
   snippet_3: string;
   defaultModel: string;
   showSelectionBox: boolean;
+  showCursorDebugDot: boolean;
   showResponseChrome: boolean;
   ultraDiscreteMode: boolean;
   launchAtLogin: boolean;
@@ -54,6 +55,7 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   snippet_3: '',
   defaultModel: 'google/gemini-3-flash-preview',
   showSelectionBox: true,
+  showCursorDebugDot: false,
   showResponseChrome: true,
   ultraDiscreteMode: false,
   launchAtLogin: false,

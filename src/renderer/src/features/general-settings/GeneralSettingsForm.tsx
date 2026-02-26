@@ -78,6 +78,15 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
         <label className="toggle">
           <input
             type="checkbox"
+            checked={draft.showCursorDebugDot}
+            onChange={(event) => setDraft((prev) => ({ ...prev, showCursorDebugDot: event.target.checked }))}
+          />
+          <span>Show cursor debug dot overlay (alignment troubleshooting)</span>
+        </label>
+
+        <label className="toggle">
+          <input
+            type="checkbox"
             checked={draft.showResponseChrome}
             onChange={(event) => setDraft((prev) => ({ ...prev, showResponseChrome: event.target.checked }))}
           />

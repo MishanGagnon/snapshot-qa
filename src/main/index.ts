@@ -8,6 +8,7 @@ import { UiohookHotkeyService } from '@main/modules/hotkeys/uiohookHotkeyService
 import { InferenceCoordinator } from '@main/modules/inference/inferenceCoordinator';
 import { OpenRouterClient } from '@main/modules/inference/openRouterClient';
 import { registerIpcHandlers } from '@main/modules/ipc/registerIpcHandlers';
+import { CursorDebugOverlay } from '@main/modules/overlay/cursorDebugOverlay';
 import { IndicatorOverlay } from '@main/modules/overlay/indicatorOverlay';
 import { SelectionOverlay } from '@main/modules/overlay/selectionOverlay';
 import { PermissionService } from '@main/modules/permissions/permissionService';
@@ -15,7 +16,12 @@ import { LatestResponseStore } from '@main/modules/runtime/latestResponseStore';
 import { KeyStore } from '@main/modules/security/keyStore';
 import { SettingsStore } from '@main/modules/settings/settingsStore';
 import { TypedTextService } from '@main/modules/text-input/typedTextService';
-import { clampRectToBounds, NormalizedRect, normalizeRect, Point, toRelativeRect } from '@main/utils/geometry';
+import {
+  clampRectToBounds,
+  NormalizedRect,
+  normalizeRect,
+  Point
+} from '@main/utils/geometry';
 import { logger } from '@main/utils/logger';
 
 let tray: Tray | null = null;
@@ -32,6 +38,10 @@ let typedTextService: TypedTextService | null = null;
 
 const selectionOverlay = new SelectionOverlay();
 const indicatorOverlay = new IndicatorOverlay();
+const cursorDebugOverlay = new CursorDebugOverlay();
+const boxStartDebugOverlay = new CursorDebugOverlay({
+  dotColor: 'rgba(46, 214, 255, 0.95)'
+});
 const cursorPositionService = new CursorPositionService();
 
 let captureSession: {
@@ -39,11 +49,13 @@ let captureSession: {
   displayBounds: Electron.Rectangle;
   display: Electron.Display;
   showSelectionBox: boolean;
+  showCursorDebugDot: boolean;
   lastDrawnRect: NormalizedRect | null;
   poll?: NodeJS.Timeout;
 } | null = null;
 
 let indicatorPoll: NodeJS.Timeout | null = null;
+let cursorDebugPoll: NodeJS.Timeout | null = null;
 
 const SNIPPET_ACTION_TO_ID: Record<SnippetHotkeyActionId, TextSnippetId> = {
   type_snippet_1: 'snippet_1',
@@ -199,13 +211,14 @@ function startCapture(): void {
 
   const startPoint = cursorPositionService.getTargetPoint('capture');
   const display = screen.getDisplayNearestPoint(startPoint);
-  const { showSelectionBox } = store.get().general;
+  const { showSelectionBox, showCursorDebugDot } = store.get().general;
 
   captureSession = {
     startPoint,
     display,
     displayBounds: display.bounds,
     showSelectionBox,
+    showCursorDebugDot,
     lastDrawnRect: null
   };
 
@@ -213,7 +226,7 @@ function startCapture(): void {
     return;
   }
 
-  void selectionOverlay.show(display.bounds);
+  void selectionOverlay.show();
   captureSession.poll = setInterval(() => {
     if (!captureSession) {
       return;
@@ -223,7 +236,17 @@ function startCapture(): void {
     const normalized = normalizeRect(captureSession.startPoint, current);
     const clamped = clampRectToBounds(normalized, captureSession.displayBounds);
     captureSession.lastDrawnRect = clamped;
-    selectionOverlay.updateRect(clamped ? toRelativeRect(clamped, captureSession.displayBounds) : null);
+    selectionOverlay.updateRect(clamped);
+
+    if (!captureSession.showCursorDebugDot || !clamped) {
+      boxStartDebugOverlay.hide();
+      return;
+    }
+
+    void boxStartDebugOverlay.showAt({
+      x: clamped.x,
+      y: clamped.y
+    });
   }, 16);
 }
 
@@ -252,10 +275,11 @@ async function finishCapture(): Promise<void> {
   const clamped = clampedAtRelease ?? session.lastDrawnRect;
 
   if (session.showSelectionBox) {
-    selectionOverlay.updateRect(clamped ? toRelativeRect(clamped, session.displayBounds) : null);
+    selectionOverlay.updateRect(clamped);
   }
 
   selectionOverlay.hide();
+  boxStartDebugOverlay.hide();
 
   if (!clamped) {
     logger.warn('Capture ignored due to tiny region.');
@@ -301,6 +325,39 @@ function stopIndicatorPreview(): void {
   }
 
   indicatorOverlay.hide();
+}
+
+function applyCursorDebugDotSetting(enabled: boolean): void {
+  if (enabled) {
+    startCursorDebugDotPreview();
+    return;
+  }
+
+  stopCursorDebugDotPreview();
+}
+
+function startCursorDebugDotPreview(): void {
+  if (cursorDebugPoll) {
+    return;
+  }
+
+  const tick = () => {
+    const point = cursorPositionService.getTargetPoint('capture');
+    void cursorDebugOverlay.showAt(point);
+  };
+
+  tick();
+  cursorDebugPoll = setInterval(tick, 16);
+}
+
+function stopCursorDebugDotPreview(): void {
+  if (cursorDebugPoll) {
+    clearInterval(cursorDebugPoll);
+    cursorDebugPoll = null;
+  }
+
+  cursorDebugOverlay.hide();
+  boxStartDebugOverlay.hide();
 }
 
 async function typeLatestResponse(): Promise<void> {
@@ -459,6 +516,7 @@ app.whenReady().then(() => {
   tray = createTray();
 
   applyLaunchAtLoginSetting(settingsStore.get().general.launchAtLogin);
+  applyCursorDebugDotSetting(settingsStore.get().general.showCursorDebugDot);
   hotkeyManager.start();
 
   registerIpcHandlers({
@@ -466,7 +524,13 @@ app.whenReady().then(() => {
     keyStore,
     hotkeyManager,
     inferenceCoordinator,
-    permissionService
+    permissionService,
+    onSettingsUpdated: (updatedSettings) => {
+      applyCursorDebugDotSetting(updatedSettings.general.showCursorDebugDot);
+      if (captureSession) {
+        captureSession.showCursorDebugDot = updatedSettings.general.showCursorDebugDot;
+      }
+    }
   });
 
   logger.info('Application initialized', {
@@ -487,8 +551,11 @@ app.on('window-all-closed', (event) => {
 app.on('before-quit', () => {
   isQuitting = true;
   hotkeyManager?.stop();
+  stopCursorDebugDotPreview();
   selectionOverlay.destroy();
   indicatorOverlay.destroy();
+  cursorDebugOverlay.destroy();
+  boxStartDebugOverlay.destroy();
   tray?.destroy();
   tray = null;
 });

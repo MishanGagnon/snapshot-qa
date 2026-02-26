@@ -1,4 +1,4 @@
-import { BrowserWindow, Rectangle } from 'electron';
+import { BrowserWindow } from 'electron';
 import { NormalizedRect } from '@main/utils/geometry';
 
 const selectionHtml = encodeURIComponent(`
@@ -15,33 +15,18 @@ const selectionHtml = encodeURIComponent(`
         overflow: hidden;
       }
       #box {
-        position: absolute;
+        width: 100%;
+        height: 100%;
         box-sizing: border-box;
         border: 1px solid rgba(236, 239, 241, 0.65);
         background: rgba(236, 239, 241, 0.09);
         border-radius: 6px;
         box-shadow: 0 0 0 1px rgba(20, 24, 28, 0.25) inset;
-        display: none;
       }
     </style>
   </head>
   <body>
     <div id="box"></div>
-    <script>
-      const { ipcRenderer } = require('electron');
-      const box = document.getElementById('box');
-      ipcRenderer.on('overlay:selection:update', (_event, rect) => {
-        if (!rect) {
-          box.style.display = 'none';
-          return;
-        }
-        box.style.display = 'block';
-        box.style.left = rect.x + 'px';
-        box.style.top = rect.y + 'px';
-        box.style.width = rect.width + 'px';
-        box.style.height = rect.height + 'px';
-      });
-    </script>
   </body>
 </html>
 `);
@@ -49,13 +34,11 @@ const selectionHtml = encodeURIComponent(`
 export class SelectionOverlay {
   private window: BrowserWindow | null = null;
 
-  async show(bounds: Rectangle): Promise<void> {
+  async show(): Promise<void> {
     if (!this.window || this.window.isDestroyed()) {
       this.window = new BrowserWindow({
-        x: bounds.x,
-        y: bounds.y,
-        width: bounds.width,
-        height: bounds.height,
+        width: 2,
+        height: 2,
         frame: false,
         transparent: true,
         show: false,
@@ -76,9 +59,6 @@ export class SelectionOverlay {
       this.window.setIgnoreMouseEvents(true, { forward: true });
       await this.window.loadURL(`data:text/html,${selectionHtml}`);
     }
-
-    this.window.setBounds(bounds);
-    this.window.showInactive();
   }
 
   updateRect(rect: NormalizedRect | null): void {
@@ -86,7 +66,18 @@ export class SelectionOverlay {
       return;
     }
 
-    this.window.webContents.send('overlay:selection:update', rect);
+    if (!rect) {
+      this.window.hide();
+      return;
+    }
+
+    this.window.setBounds({
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width: Math.max(2, Math.round(rect.width)),
+      height: Math.max(2, Math.round(rect.height))
+    });
+    this.window.showInactive();
   }
 
   hide(): void {
@@ -94,7 +85,6 @@ export class SelectionOverlay {
       return;
     }
 
-    this.window.webContents.send('overlay:selection:update', null);
     this.window.hide();
   }
 

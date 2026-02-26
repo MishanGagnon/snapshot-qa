@@ -1,5 +1,6 @@
 import { app, ipcMain } from 'electron';
 import {
+  AppSettings,
   HotkeyMap,
   HotkeyUpdateResponse,
   HotkeyValidationResult,
@@ -20,6 +21,7 @@ interface IpcDependencies {
   hotkeyManager: HotkeyManager;
   inferenceCoordinator: InferenceCoordinator;
   permissionService: PermissionService;
+  onSettingsUpdated?: (nextSettings: AppSettings) => void;
 }
 
 export function registerIpcHandlers(deps: IpcDependencies): void {
@@ -36,6 +38,7 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
         // Ignore launch-at-login update errors; app remains usable in dev and restricted environments.
       }
     }
+    deps.onSettingsUpdated?.(updated);
     return updated;
   });
 
