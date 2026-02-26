@@ -11,6 +11,29 @@ export interface KeyStatusResponse {
   hasOpenRouterKey: boolean;
 }
 
+export type AppUpdateState =
+  | 'disabled'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'not_available'
+  | 'error';
+
+export interface AppUpdateStatus {
+  state: AppUpdateState;
+  available: boolean;
+  version?: string;
+  error?: string;
+}
+
+export interface UpdateActionResponse {
+  ok: boolean;
+  message: string;
+  status: AppUpdateStatus;
+}
+
 export interface DesktopApi {
   settings: {
     get: () => Promise<AppSettings>;
@@ -31,5 +54,9 @@ export interface DesktopApi {
   permissions: {
     getStatus: () => Promise<PermissionStatus>;
   };
+  updates: {
+    getStatus: () => Promise<AppUpdateStatus>;
+    checkNow: () => Promise<AppUpdateStatus>;
+    installNow: () => Promise<UpdateActionResponse>;
+  };
 }
-

@@ -7,5 +7,8 @@ export const IPC_CHANNELS = {
   keySetOpenRouter: 'keys:setOpenRouter',
   keyGetStatus: 'keys:getStatus',
   runtimeGetLatestInferenceState: 'runtime:getLatestInferenceState',
-  permissionsGetStatus: 'permissions:getStatus'
+  permissionsGetStatus: 'permissions:getStatus',
+  updatesGetStatus: 'updates:getStatus',
+  updatesCheckNow: 'updates:checkNow',
+  updatesInstallNow: 'updates:installNow'
 } as const;

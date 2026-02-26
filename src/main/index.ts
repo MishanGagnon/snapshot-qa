@@ -15,6 +15,7 @@ import { LatestResponseStore } from '@main/modules/runtime/latestResponseStore';
 import { KeyStore } from '@main/modules/security/keyStore';
 import { SettingsStore } from '@main/modules/settings/settingsStore';
 import { TypedTextService } from '@main/modules/text-input/typedTextService';
+import { UpdateService } from '@main/modules/updates/updateService';
 import { clampRectToBounds, NormalizedRect, normalizeRect, Point, toRelativeRect } from '@main/utils/geometry';
 import { logger } from '@main/utils/logger';
 
@@ -29,6 +30,7 @@ let inferenceCoordinator: InferenceCoordinator | null = null;
 let captureService: CaptureService | null = null;
 let hotkeyManager: HotkeyManager | null = null;
 let typedTextService: TypedTextService | null = null;
+let updateService: UpdateService | null = null;
 
 const selectionOverlay = new SelectionOverlay();
 const indicatorOverlay = new IndicatorOverlay();
@@ -60,6 +62,8 @@ function createSettingsWindow(): BrowserWindow {
     title: 'Discreet QA Settings',
     backgroundColor: '#0e1318',
     titleBarStyle: 'hiddenInset',
+    movable: true,
+    resizable: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
@@ -440,6 +444,7 @@ app.whenReady().then(() => {
   permissionService = new PermissionService();
   captureService = new CaptureService();
   typedTextService = new TypedTextService();
+  updateService = new UpdateService(app.isPackaged);
 
   const latestResponseStore = new LatestResponseStore();
   inferenceCoordinator = new InferenceCoordinator(
@@ -466,8 +471,11 @@ app.whenReady().then(() => {
     keyStore,
     hotkeyManager,
     inferenceCoordinator,
-    permissionService
+    permissionService,
+    updateService
   });
+
+  updateService.start();
 
   logger.info('Application initialized', {
     hotkeys: HOTKEY_ACTION_DEFINITIONS.map((action) => action.id).join(', ')
@@ -487,6 +495,7 @@ app.on('window-all-closed', (event) => {
 app.on('before-quit', () => {
   isQuitting = true;
   hotkeyManager?.stop();
+  updateService?.stop();
   selectionOverlay.destroy();
   indicatorOverlay.destroy();
   tray?.destroy();

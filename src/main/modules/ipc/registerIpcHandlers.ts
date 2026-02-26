@@ -1,11 +1,13 @@
 import { app, ipcMain } from 'electron';
 import {
+  AppUpdateStatus,
   HotkeyMap,
   HotkeyUpdateResponse,
   HotkeyValidationResult,
   GeneralSettings,
   IPC_CHANNELS,
-  KeyStatusResponse
+  KeyStatusResponse,
+  UpdateActionResponse
 } from '@shared/contracts';
 import { HotkeyManager } from '@main/modules/hotkeys/hotkeyManager';
 import { validateHotkeyMap } from '@main/modules/hotkeys/validation';
@@ -13,6 +15,7 @@ import { PermissionService } from '@main/modules/permissions/permissionService';
 import { InferenceCoordinator } from '@main/modules/inference/inferenceCoordinator';
 import { KeyStore } from '@main/modules/security/keyStore';
 import { SettingsStore } from '@main/modules/settings/settingsStore';
+import { UpdateService } from '@main/modules/updates/updateService';
 
 interface IpcDependencies {
   settingsStore: SettingsStore;
@@ -20,6 +23,7 @@ interface IpcDependencies {
   hotkeyManager: HotkeyManager;
   inferenceCoordinator: InferenceCoordinator;
   permissionService: PermissionService;
+  updateService: UpdateService;
 }
 
 export function registerIpcHandlers(deps: IpcDependencies): void {
@@ -81,4 +85,10 @@ export function registerIpcHandlers(deps: IpcDependencies): void {
   ipcMain.handle(IPC_CHANNELS.runtimeGetLatestInferenceState, async () => deps.inferenceCoordinator.getLatestState());
 
   ipcMain.handle(IPC_CHANNELS.permissionsGetStatus, async () => deps.permissionService.getStatus());
+  ipcMain.handle(IPC_CHANNELS.updatesGetStatus, async (): Promise<AppUpdateStatus> => deps.updateService.getStatus());
+  ipcMain.handle(IPC_CHANNELS.updatesCheckNow, async (): Promise<AppUpdateStatus> => deps.updateService.checkNow());
+  ipcMain.handle(
+    IPC_CHANNELS.updatesInstallNow,
+    async (): Promise<UpdateActionResponse> => deps.updateService.installNow()
+  );
 }

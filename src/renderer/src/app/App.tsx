@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  AppUpdateStatus,
   AppSettings,
   HotkeyMap,
   HotkeyUpdateResponse,
@@ -39,6 +40,7 @@ export function App(): JSX.Element {
   const [hotkeys, setHotkeys] = useState<HotkeyMap | null>(null);
   const [keyStatus, setKeyStatus] = useState<KeyStatusResponse | null>(null);
   const [permissions, setPermissions] = useState<PermissionStatus | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<AppUpdateStatus | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('general');
   const [feedback, setFeedback] = useState<string>('');
 
@@ -48,18 +50,41 @@ export function App(): JSX.Element {
     }
 
     void (async () => {
-      const [loadedSettings, loadedHotkeys, loadedKeyStatus, loadedPermissions] = await Promise.all([
+      const [loadedSettings, loadedHotkeys, loadedKeyStatus, loadedPermissions, loadedUpdateStatus] = await Promise.all([
         api.settings.get(),
         api.hotkeys.get(),
         api.keys.getStatus(),
-        api.permissions.getStatus()
+        api.permissions.getStatus(),
+        api.updates.getStatus()
       ]);
 
       setSettings(loadedSettings);
       setHotkeys(loadedHotkeys);
       setKeyStatus(loadedKeyStatus);
       setPermissions(loadedPermissions);
+      setUpdateStatus(loadedUpdateStatus);
     })();
+  }, [api]);
+
+  useEffect(() => {
+    if (!api) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      void api.updates
+        .getStatus()
+        .then((status) => {
+          setUpdateStatus(status);
+        })
+        .catch(() => {
+          // Ignore transient polling failures.
+        });
+    }, 2500);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, [api]);
 
   if (!api) {
@@ -116,16 +141,32 @@ export function App(): JSX.Element {
     setFeedback('OpenRouter key saved to Keychain.');
   };
 
+  const installUpdateNow = async (): Promise<void> => {
+    const result = await api.updates.installNow();
+    setUpdateStatus(result.status);
+    setFeedback(result.message);
+  };
+
   const tabCopy = TAB_COPY[activeTab];
+  const showUpdateNow = Boolean(updateStatus?.available);
+  const updateNowDisabled = updateStatus?.state === 'downloading' || updateStatus?.state === 'checking';
 
   return (
     <main className="app-shell">
+      <div className="window-drag-region" aria-hidden="true" />
       <TabNav activeTab={activeTab} onChange={setActiveTab} />
 
       <section className="content-frame">
         <header className="content-frame__header">
-          <h2>{tabCopy.title}</h2>
-          <p>{tabCopy.subtitle}</p>
+          <div>
+            <h2>{tabCopy.title}</h2>
+            <p>{tabCopy.subtitle}</p>
+          </div>
+          {showUpdateNow ? (
+            <button type="button" className="button button--update" disabled={updateNowDisabled} onClick={installUpdateNow}>
+              Update now
+            </button>
+          ) : null}
         </header>
 
         {activeTab === 'general' ? (

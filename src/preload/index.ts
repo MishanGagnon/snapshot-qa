@@ -20,6 +20,11 @@ const api: DesktopApi = {
   },
   permissions: {
     getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.permissionsGetStatus)
+  },
+  updates: {
+    getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.updatesGetStatus),
+    checkNow: () => ipcRenderer.invoke(IPC_CHANNELS.updatesCheckNow),
+    installNow: () => ipcRenderer.invoke(IPC_CHANNELS.updatesInstallNow)
   }
 };
 
