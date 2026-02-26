@@ -50,8 +50,8 @@ const indicatorHtml = encodeURIComponent(`
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.52);
         backdrop-filter: blur(6px) saturate(110%);
         white-space: pre-wrap;
-        word-break: break-word;
-        overflow-wrap: anywhere;
+        word-break: normal;
+        overflow-wrap: break-word;
       }
       #bubble.pending {
         width: 10px;
@@ -234,7 +234,7 @@ const COMPLETE_BUBBLE_MAX_LINES = 6;
 const COMPLETE_BUBBLE_HORIZONTAL_CHROME = 16;
 const COMPLETE_BUBBLE_VERTICAL_CHROME = 8;
 const COMPLETE_BUBBLE_LINE_HEIGHT = 15;
-const AVERAGE_GLYPH_WIDTH = 6.4;
+const AVERAGE_GLYPH_WIDTH = 7.1;
 
 function getBounds(payload: {
   state: IndicatorState;
