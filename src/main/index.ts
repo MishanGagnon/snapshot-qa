@@ -211,8 +211,8 @@ function startCapture(): void {
 
   const startPoint = cursorPositionService.getTargetPoint('capture');
   const display = screen.getDisplayNearestPoint(startPoint);
-  const { ultraDiscreteMode, showSelectionBox, showCursorDebugDot } = store.get().general;
-  const effectiveShowSelectionBox = ultraDiscreteMode ? false : showSelectionBox;
+  const { ultraDiscreteMode, showCursorDebugDot } = store.get().general;
+  const effectiveShowSelectionBox = !ultraDiscreteMode;
 
   captureSession = {
     startPoint,
@@ -439,8 +439,8 @@ async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<
   if (!coordinator || !store) {
     return;
   }
-  const { ultraDiscreteMode, showResponseChrome } = store.get().general;
-  const effectiveShowResponseChrome = ultraDiscreteMode ? false : showResponseChrome;
+  const { ultraDiscreteMode } = store.get().general;
+  const effectiveShowResponseChrome = !ultraDiscreteMode;
 
   if (latest.status === 'pending') {
     await indicatorOverlay.showAt(point, {

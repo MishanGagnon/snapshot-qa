@@ -12,8 +12,6 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
   const [draft, setDraft] = useState<GeneralSettings>(initialValue);
   const [status, setStatus] = useState('Autosaves on input.');
   const skipAutosave = useRef(true);
-  const selectionBoxLocked = draft.ultraDiscreteMode;
-  const responseChromeLocked = draft.ultraDiscreteMode;
 
   useEffect(() => {
     setDraft(initialValue);
@@ -68,16 +66,14 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
       </label>
 
       <div className="toggle-grid">
-        <label className={`toggle ${selectionBoxLocked ? 'toggle--disabled' : ''}`}>
+        <label className="toggle">
           <input
             type="checkbox"
-            checked={draft.showSelectionBox}
-            disabled={selectionBoxLocked}
-            onChange={(event) => setDraft((prev) => ({ ...prev, showSelectionBox: event.target.checked }))}
+            checked={draft.ultraDiscreteMode}
+            onChange={(event) => setDraft((prev) => ({ ...prev, ultraDiscreteMode: event.target.checked }))}
           />
           <span>
-            Show subtle selection box during capture
-            {selectionBoxLocked ? ' (disabled in ultra discrete mode)' : ''}
+            Discrete mode (no capture box, subtle waiting indicator, no response bubble background)
           </span>
         </label>
 
@@ -87,29 +83,7 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
             checked={draft.showCursorDebugDot}
             onChange={(event) => setDraft((prev) => ({ ...prev, showCursorDebugDot: event.target.checked }))}
           />
-          <span>Show cursor debug dot overlay (alignment troubleshooting)</span>
-        </label>
-
-        <label className={`toggle ${responseChromeLocked ? 'toggle--disabled' : ''}`}>
-          <input
-            type="checkbox"
-            checked={draft.showResponseChrome}
-            disabled={responseChromeLocked}
-            onChange={(event) => setDraft((prev) => ({ ...prev, showResponseChrome: event.target.checked }))}
-          />
-          <span>
-            Show response bubble background and border
-            {responseChromeLocked ? ' (disabled in ultra discrete mode)' : ''}
-          </span>
-        </label>
-
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={draft.ultraDiscreteMode}
-            onChange={(event) => setDraft((prev) => ({ ...prev, ultraDiscreteMode: event.target.checked }))}
-          />
-          <span>Ultra discrete mode (text-only, no response background)</span>
+          <span>Debug mode (show cursor alignment dot overlay)</span>
         </label>
 
         <label className="toggle">

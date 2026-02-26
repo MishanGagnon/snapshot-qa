@@ -253,10 +253,6 @@ body {
   font-size: 13px;
 }
 
-.toggle--disabled {
-  opacity: 0.62;
-}
-
 .toggle input[type='checkbox'] {
   appearance: none;
   -webkit-appearance: none;

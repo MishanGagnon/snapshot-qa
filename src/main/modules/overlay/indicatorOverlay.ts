@@ -151,6 +151,18 @@ const indicatorHtml = encodeURIComponent(`
           classes.push('no-chrome');
         }
         bubble.className = classes.join(' ');
+        if (payload.ultraDiscreteMode) {
+          // Hard-enforce text-only rendering in discrete mode.
+          bubble.style.background = 'transparent';
+          bubble.style.borderColor = 'transparent';
+          bubble.style.borderWidth = '0';
+          bubble.style.boxShadow = 'none';
+        } else {
+          bubble.style.background = '';
+          bubble.style.borderColor = '';
+          bubble.style.borderWidth = '';
+          bubble.style.boxShadow = '';
+        }
         if (payload.state === 'complete') {
           bubble.textContent = payload.text ?? '';
           return;
