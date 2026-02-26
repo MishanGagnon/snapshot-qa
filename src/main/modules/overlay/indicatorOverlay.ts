@@ -65,12 +65,15 @@ const indicatorHtml = encodeURIComponent(`
       }
       #bubble.pending.ultra-discrete {
         width: auto;
-        min-width: 0;
+        min-width: 18px;
         height: auto;
         min-height: 0;
         padding: 0 1px;
         border-radius: 0;
-        color: rgba(145, 156, 170, 0.82);
+        color: rgba(214, 222, 232, 0.96);
+        font-size: 13px;
+        font-weight: 700;
+        text-shadow: 0 0 2px rgba(0, 0, 0, 0.45);
       }
       #bubble.error {
         width: 10px;
@@ -84,17 +87,22 @@ const indicatorHtml = encodeURIComponent(`
       }
       #bubble.error.ultra-discrete {
         width: auto;
-        min-width: 0;
+        min-width: 10px;
         height: auto;
         min-height: 0;
         padding: 0 1px;
         border-radius: 0;
-        color: rgba(191, 61, 61, 0.86);
+        color: rgba(242, 112, 112, 0.96);
+        font-size: 13px;
+        font-weight: 700;
+        text-shadow: 0 0 2px rgba(0, 0, 0, 0.45);
       }
       #bubble.no-chrome {
         border-color: transparent;
         border-width: 0;
         box-shadow: none;
+      }
+      #bubble.complete.no-chrome {
         background: rgba(25, 30, 36, 0.58);
       }
       #bubble.ultra-discrete {
@@ -118,6 +126,12 @@ const indicatorHtml = encodeURIComponent(`
         border-color: transparent;
         border-width: 0;
         box-shadow: none;
+      }
+      #bubble.pending.no-chrome:not(.ultra-discrete) {
+        background: rgba(218, 165, 32, 0.95);
+      }
+      #bubble.error.no-chrome:not(.ultra-discrete) {
+        background: rgba(191, 61, 61, 0.94);
       }
     </style>
   </head>

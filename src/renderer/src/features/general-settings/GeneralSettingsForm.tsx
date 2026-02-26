@@ -12,6 +12,7 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
   const [draft, setDraft] = useState<GeneralSettings>(initialValue);
   const [status, setStatus] = useState('Autosaves on input.');
   const skipAutosave = useRef(true);
+  const selectionBoxLocked = draft.ultraDiscreteMode;
   const responseChromeLocked = draft.ultraDiscreteMode;
 
   useEffect(() => {
@@ -67,13 +68,17 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
       </label>
 
       <div className="toggle-grid">
-        <label className="toggle">
+        <label className={`toggle ${selectionBoxLocked ? 'toggle--disabled' : ''}`}>
           <input
             type="checkbox"
             checked={draft.showSelectionBox}
+            disabled={selectionBoxLocked}
             onChange={(event) => setDraft((prev) => ({ ...prev, showSelectionBox: event.target.checked }))}
           />
-          <span>Show subtle selection box during capture</span>
+          <span>
+            Show subtle selection box during capture
+            {selectionBoxLocked ? ' (disabled in ultra discrete mode)' : ''}
+          </span>
         </label>
 
         <label className="toggle">

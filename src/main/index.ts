@@ -211,18 +211,19 @@ function startCapture(): void {
 
   const startPoint = cursorPositionService.getTargetPoint('capture');
   const display = screen.getDisplayNearestPoint(startPoint);
-  const { showSelectionBox, showCursorDebugDot } = store.get().general;
+  const { ultraDiscreteMode, showSelectionBox, showCursorDebugDot } = store.get().general;
+  const effectiveShowSelectionBox = ultraDiscreteMode ? false : showSelectionBox;
 
   captureSession = {
     startPoint,
     display,
     displayBounds: display.bounds,
-    showSelectionBox,
+    showSelectionBox: effectiveShowSelectionBox,
     showCursorDebugDot,
     lastDrawnRect: null
   };
 
-  if (!showSelectionBox) {
+  if (!effectiveShowSelectionBox) {
     return;
   }
 
