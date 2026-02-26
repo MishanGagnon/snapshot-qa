@@ -12,6 +12,7 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
   const [draft, setDraft] = useState<GeneralSettings>(initialValue);
   const [status, setStatus] = useState('Autosaves on input.');
   const skipAutosave = useRef(true);
+  const responseChromeLocked = draft.ultraDiscreteMode;
 
   useEffect(() => {
     setDraft(initialValue);
@@ -84,13 +85,17 @@ export function GeneralSettingsForm({ initialValue, permissions, onSave }: Gener
           <span>Show cursor debug dot overlay (alignment troubleshooting)</span>
         </label>
 
-        <label className="toggle">
+        <label className={`toggle ${responseChromeLocked ? 'toggle--disabled' : ''}`}>
           <input
             type="checkbox"
             checked={draft.showResponseChrome}
+            disabled={responseChromeLocked}
             onChange={(event) => setDraft((prev) => ({ ...prev, showResponseChrome: event.target.checked }))}
           />
-          <span>Show response bubble background and border</span>
+          <span>
+            Show response bubble background and border
+            {responseChromeLocked ? ' (disabled in ultra discrete mode)' : ''}
+          </span>
         </label>
 
         <label className="toggle">

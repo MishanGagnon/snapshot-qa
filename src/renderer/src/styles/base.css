@@ -253,6 +253,10 @@ body {
   font-size: 13px;
 }
 
+.toggle--disabled {
+  opacity: 0.62;
+}
+
 .toggle input[type='checkbox'] {
   appearance: none;
   -webkit-appearance: none;
@@ -286,6 +290,11 @@ body {
 
 .toggle input[type='checkbox']:checked::before {
   transform: translateX(16px);
+}
+
+.toggle input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  background: rgba(120, 127, 138, 0.22);
 }
 
 .status-strip {

@@ -69,9 +69,9 @@ function createSettingsWindow(): BrowserWindow {
     width: 760,
     height: 620,
     show: false,
-    title: 'Discreet QA Settings',
+    movable: true,
+    title: 'Snapshot QA Settings',
     backgroundColor: '#0e1318',
-    titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
@@ -115,7 +115,7 @@ function createTray(): Tray {
     .resize({ width: 16, height: 16 });
 
   const nextTray = new Tray(icon);
-  nextTray.setToolTip('Discreet QA');
+  nextTray.setToolTip('Snapshot QA');
   nextTray.setContextMenu(
     Menu.buildFromTemplate([
       {
@@ -439,12 +439,13 @@ async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<
     return;
   }
   const { ultraDiscreteMode, showResponseChrome } = store.get().general;
+  const effectiveShowResponseChrome = ultraDiscreteMode ? false : showResponseChrome;
 
   if (latest.status === 'pending') {
     await indicatorOverlay.showAt(point, {
       state: 'pending',
       ultraDiscreteMode,
-      showResponseChrome
+      showResponseChrome: effectiveShowResponseChrome
     });
     return;
   }
@@ -455,7 +456,7 @@ async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<
       state: 'complete',
       text: latest.text,
       ultraDiscreteMode,
-      showResponseChrome
+      showResponseChrome: effectiveShowResponseChrome
     });
     return;
   }
@@ -466,7 +467,7 @@ async function renderIndicatorAt(point: Point, latest: LatestResponse): Promise<
       state: 'error',
       text: latest.text,
       ultraDiscreteMode,
-      showResponseChrome
+      showResponseChrome: effectiveShowResponseChrome
     });
   }
 }

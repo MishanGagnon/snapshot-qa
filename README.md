@@ -1,4 +1,4 @@
-# Discreet QA (macOS)
+# Snapshot QA (macOS)
 
 A menu bar Electron app for low-visibility screenshot Q&A with OpenRouter.
 

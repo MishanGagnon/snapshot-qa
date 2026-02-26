@@ -1,6 +1,5 @@
 import { BrowserWindow } from 'electron';
 import { Point } from '@main/utils/geometry';
-import { logger } from '@main/utils/logger';
 
 type IndicatorState = 'pending' | 'complete' | 'error';
 interface IndicatorVisualOptions {
@@ -64,6 +63,15 @@ const indicatorHtml = encodeURIComponent(`
         background: rgba(218, 165, 32, 0.95);
         border: 1px solid rgba(218, 165, 32, 0.95);
       }
+      #bubble.pending.ultra-discrete {
+        width: auto;
+        min-width: 0;
+        height: auto;
+        min-height: 0;
+        padding: 0 1px;
+        border-radius: 0;
+        color: rgba(145, 156, 170, 0.82);
+      }
       #bubble.error {
         width: 10px;
         min-width: 10px;
@@ -74,29 +82,35 @@ const indicatorHtml = encodeURIComponent(`
         background: rgba(191, 61, 61, 0.94);
         border: 1px solid rgba(191, 61, 61, 0.94);
       }
+      #bubble.error.ultra-discrete {
+        width: auto;
+        min-width: 0;
+        height: auto;
+        min-height: 0;
+        padding: 0 1px;
+        border-radius: 0;
+        color: rgba(191, 61, 61, 0.86);
+      }
       #bubble.no-chrome {
         border-color: transparent;
         border-width: 0;
         box-shadow: none;
         background: rgba(25, 30, 36, 0.58);
       }
-      #bubble.complete.ultra-discrete {
-        color: rgba(145, 156, 170, 0.86);
+      #bubble.ultra-discrete {
         background: transparent;
         border-color: transparent;
         border-width: 0;
         box-shadow: none;
         text-shadow: none;
         backdrop-filter: none;
+      }
+      #bubble.complete.ultra-discrete {
+        color: rgba(145, 156, 170, 0.86);
         padding: 0 1px;
       }
       #bubble.complete.ultra-discrete.no-chrome {
         color: rgba(145, 156, 170, 0.82);
-        background: transparent;
-        border-width: 0;
-        box-shadow: none;
-        text-shadow: none;
-        backdrop-filter: none;
         padding: 0 1px;
       }
       #bubble.pending.no-chrome,
@@ -123,7 +137,17 @@ const indicatorHtml = encodeURIComponent(`
           classes.push('no-chrome');
         }
         bubble.className = classes.join(' ');
-        bubble.textContent = payload.state === 'complete' ? payload.text : '';
+        if (payload.state === 'complete') {
+          bubble.textContent = payload.text ?? '';
+          return;
+        }
+
+        if (!payload.ultraDiscreteMode) {
+          bubble.textContent = '';
+          return;
+        }
+
+        bubble.textContent = payload.state === 'pending' ? '...' : '!';
       });
     </script>
   </body>
@@ -132,7 +156,6 @@ const indicatorHtml = encodeURIComponent(`
 
 export class IndicatorOverlay {
   private window: BrowserWindow | null = null;
-  private lastLoggedDisplaySignature: string | null = null;
 
   async showAt(point: Point, payload: { state: IndicatorState; text?: string } & IndicatorVisualOptions): Promise<void> {
     if (!this.window || this.window.isDestroyed()) {
@@ -160,25 +183,6 @@ export class IndicatorOverlay {
       await this.window.loadURL(`data:text/html,${indicatorHtml}`);
     }
 
-    const displayText = payload.state === 'complete' || payload.state === 'error' ? payload.text ?? '' : '';
-    const displaySignature = [
-      payload.state,
-      payload.ultraDiscreteMode ? 'u1' : 'u0',
-      payload.showResponseChrome ? 'c1' : 'c0',
-      displayText
-    ].join('|');
-
-    if (this.lastLoggedDisplaySignature !== displaySignature) {
-      this.lastLoggedDisplaySignature = displaySignature;
-      logger.info('Indicator overlay target display', {
-        state: payload.state,
-        displayText,
-        displayTextChars: displayText.length,
-        ultraDiscreteMode: payload.ultraDiscreteMode,
-        showResponseChrome: payload.showResponseChrome
-      });
-    }
-
     const bounds = getBounds(payload);
     this.window.setBounds({
       x: point.x,
@@ -196,7 +200,6 @@ export class IndicatorOverlay {
       return;
     }
 
-    this.lastLoggedDisplaySignature = null;
     this.window.hide();
   }
 
@@ -205,7 +208,6 @@ export class IndicatorOverlay {
       return;
     }
 
-    this.lastLoggedDisplaySignature = null;
     this.window.destroy();
     this.window = null;
   }
@@ -226,6 +228,13 @@ function getBounds(payload: {
   ultraDiscreteMode?: boolean;
 }): { width: number; height: number } {
   if (payload.state === 'pending' || payload.state === 'error') {
+    if (payload.ultraDiscreteMode) {
+      return {
+        width: payload.state === 'pending' ? 24 : 12,
+        height: 18
+      };
+    }
+
     return {
       width: 14,
       height: 14

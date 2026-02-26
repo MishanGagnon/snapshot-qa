@@ -6,7 +6,6 @@ import {
   IConfig,
   IGlobalKey,
   IGlobalKeyDownMap,
-  IGlobalKeyEvent,
   IGlobalKeyListener
 } from 'keyspy';
 import { HOTKEY_ACTION_DEFINITIONS, HotkeyActionId, HotkeyBinding, HotkeyMap, HotkeyModifier } from '@shared/contracts';
@@ -24,55 +23,7 @@ const FN_CHORD_GRACE_MS = 160;
 
 export class KeyspyHotkeyService implements HotkeyService {
   private readonly keyListener = new GlobalKeyboardListener(buildKeyspyConfig());
-  private readonly onKeyEvent: IGlobalKeyListener = (event, downMap) => {
-    this.sawAnyEvent = true;
-
-    if (!this.loggedEventStreamActive) {
-      this.loggedEventStreamActive = true;
-      logger.info('Keyspy event stream is active.', {
-        firstEventName: event.name ?? 'UNKNOWN',
-        firstVKey: event.vKey,
-        firstScanCode: event.scanCode
-      });
-    }
-
-    const fnDown = Boolean(downMap.FN);
-    if (fnDown !== this.fnDown) {
-      logger.info('Fn modifier state changed.', {
-        from: this.fnDown,
-        to: fnDown,
-        triggerName: event.name ?? 'UNKNOWN',
-        triggerRawName: event.rawKey?._nameRaw ?? 'n/a',
-        triggerVKey: event.vKey,
-        triggerScanCode: event.scanCode
-      });
-      this.fnDown = fnDown;
-    }
-
-    if (isFnLikeEvent(event)) {
-      logger.info('Fn key event detected.', {
-        state: event.state,
-        name: event.name ?? 'UNKNOWN',
-        rawName: event.rawKey?._nameRaw ?? 'n/a',
-        rawMappedName: event.rawKey?.name ?? 'n/a',
-        vKey: event.vKey,
-        scanCode: event.scanCode,
-        fnDown: Boolean(downMap.FN)
-      });
-    }
-
-    if (isFunctionKeycodeEvent(event) && !isFnLikeEvent(event)) {
-      logger.info('Fn keycode event detected (vKey/scanCode 63).', {
-        state: event.state,
-        name: event.name ?? 'UNKNOWN',
-        rawName: event.rawKey?._nameRaw ?? 'n/a',
-        rawMappedName: event.rawKey?.name ?? 'n/a',
-        vKey: event.vKey,
-        scanCode: event.scanCode,
-        fnDown
-      });
-    }
-
+  private readonly onKeyEvent: IGlobalKeyListener = (_event, downMap) => {
     this.downMap = downMap;
     this.evaluateTransitions();
     return false;
@@ -84,10 +35,6 @@ export class KeyspyHotkeyService implements HotkeyService {
   private activeStates: Record<HotkeyActionId, boolean> = createInactiveStates();
   private pendingStarts = new Map<HotkeyActionId, NodeJS.Timeout>();
   private running = false;
-  private fnDown = false;
-  private sawAnyEvent = false;
-  private loggedEventStreamActive = false;
-  private startupProbeTimeout: NodeJS.Timeout | null = null;
 
   start(bindings: HotkeyMap, onStart: (actionId: HotkeyActionId) => void, onEnd: (actionId: HotkeyActionId) => void): void {
     this.bindings = bindings;
@@ -97,35 +44,12 @@ export class KeyspyHotkeyService implements HotkeyService {
     this.clearPendingStarts();
     this.activeStates = createInactiveStates();
     this.running = true;
-    this.fnDown = false;
-    this.sawAnyEvent = false;
-    this.loggedEventStreamActive = false;
-
-    if (this.startupProbeTimeout) {
-      clearTimeout(this.startupProbeTimeout);
-    }
-
-    this.startupProbeTimeout = setTimeout(() => {
-      if (this.running && !this.sawAnyEvent) {
-        logger.warn('Keyspy listener started but no key events have been seen yet.', {
-          hint: 'Input Monitoring/Accessibility permissions may be missing or blocked.'
-        });
-      }
-      this.startupProbeTimeout = null;
-    }, 5000);
 
     void this.keyListener
       .addListener(this.onKeyEvent)
-      .then(() => {
-        logger.info('Keyspy listener registered.');
-      })
       .catch((error) => {
         this.keyListener.removeListener(this.onKeyEvent);
         this.running = false;
-        if (this.startupProbeTimeout) {
-          clearTimeout(this.startupProbeTimeout);
-          this.startupProbeTimeout = null;
-        }
         logger.error('Failed to initialize keyspy listener.', {
           reason: error instanceof Error ? error.message : 'unknown'
         });
@@ -148,13 +72,6 @@ export class KeyspyHotkeyService implements HotkeyService {
     this.running = false;
     this.clearPendingStarts();
     this.downMap = {};
-    this.fnDown = false;
-    this.sawAnyEvent = false;
-    this.loggedEventStreamActive = false;
-    if (this.startupProbeTimeout) {
-      clearTimeout(this.startupProbeTimeout);
-      this.startupProbeTimeout = null;
-    }
     this.activeStates = createInactiveStates();
   }
 
@@ -260,19 +177,6 @@ function createInactiveStates(): Record<HotkeyActionId, boolean> {
   );
 }
 
-function isFnLikeEvent(event: IGlobalKeyEvent): boolean {
-  if (event.name === 'FN') {
-    return true;
-  }
-
-  const raw = `${event.rawKey?._nameRaw ?? ''} ${event.rawKey?.name ?? ''}`.toUpperCase();
-  return raw.includes('FN') || raw.includes('FUNCTION');
-}
-
-function isFunctionKeycodeEvent(event: IGlobalKeyEvent): boolean {
-  return event.vKey === 63 || event.scanCode === 63;
-}
-
 function shouldDebounceStart(binding: HotkeyBinding): boolean {
   return isFnStandaloneBinding(binding);
 }
@@ -296,7 +200,7 @@ function hasNonFnModifierDown(downMap: IGlobalKeyDownMap): boolean {
 
 function buildKeyspyConfig(): IConfig {
   const config: IConfig = {
-    appName: 'Discreet QA'
+    appName: 'Snapshot QA'
   };
 
   try {
@@ -308,14 +212,14 @@ function buildKeyspyConfig(): IConfig {
 
     config.mac = {
       serverPath: macServerPath,
-      appName: 'Discreet QA'
+      appName: 'Snapshot QA'
     };
     config.windows = {
       serverPath: windowsServerPath
     };
     config.x11 = {
       serverPath: x11ServerPath,
-      appName: 'Discreet QA'
+      appName: 'Snapshot QA'
     };
 
     if (process.platform === 'darwin' && !existsSync(macServerPath)) {

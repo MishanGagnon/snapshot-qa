@@ -1,7 +1,7 @@
 {
   "name": "background-agent",
   "version": "0.1.0",
-  "description": "Discreet macOS hotkey QA assistant",
+  "description": "Discrete macOS hotkey QA assistant",
   "main": "out/main/index.js",
   "type": "module",
   "scripts": {

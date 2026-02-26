@@ -22,7 +22,7 @@ export function buildPrompt(input: PromptBuildInput): PromptBuildResult {
   const { value: corpus, truncated } = truncateCorpus(input.corpus, MAX_CORPUS_CHARS);
 
   const instruction = [
-    'You are a discreet workplace recall assistant.',
+    'You are a discrete workplace recall assistant.',
     'Answer using the screenshot and provided context only.',
     'If uncertain use as many reasoning tokens as possible going over the provided corpus and personal knoweldge to answer.',
     'Return a complete final answer, not a fragment.',
